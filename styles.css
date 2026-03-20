@@ -72,12 +72,33 @@ body {
   background-position: 0 0, 0 0, center;
 }
 
+.fog-layer {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: #6e747e;
+  z-index: 2;
+}
+
 .drop-marker {
   position: absolute;
   transform: translate(-50%, -50%);
   font-size: 28px;
   pointer-events: none;
   animation: pop-in 180ms ease-out;
+  z-index: 3;
+}
+
+.game-icon {
+  position: absolute;
+  transform: translate(-50%, -50%);
+  width: 42px;
+  height: 42px;
+  object-fit: contain;
+  font-size: 30px;
+  line-height: 1;
+  pointer-events: none;
+  z-index: 1;
 }
 
 #last-action {
