@@ -6,9 +6,12 @@ const game = {
   maxReveals: 6,
   tileSize: 48,
   showFog: true,
+  showRevealRings: false,
+  scoutMode: false,
   gameActive: true,
-  revealedAreas: new Set(), // Track clicked map tiles (tileX,tileY)
 };
+
+const scoutPoints = [];
 
 // Interactive map objects. Each icon has a position, a type, and reveal state.
 const gameIcons = [
@@ -33,6 +36,12 @@ const revealedCircles = firstJerryCan
     ]
   : [];
 
+// Hidden village goal location on the tileset (no visible icon required).
+const villageGoal = {
+  x: 977,
+  y: 402,
+};
+
 // Game setup
 const gameContainer = document.getElementById('game-area');
 gameContainer.style.fontFamily = 'Arial, sans-serif';
@@ -41,6 +50,11 @@ gameContainer.style.fontFamily = 'Arial, sans-serif';
 const infoDiv = document.createElement('div');
 infoDiv.id = 'game-info';
 gameContainer.appendChild(infoDiv);
+
+// Live coordinate readout to help choose exact village goal location.
+const coordReadoutDiv = document.createElement('div');
+coordReadoutDiv.id = 'coord-readout';
+gameContainer.appendChild(coordReadoutDiv);
 
 // Create map field where the tileset image lives
 const mapField = document.createElement('div');
@@ -61,16 +75,57 @@ const setupMapLayer = () => {
   const fogLayer = document.createElement('div');
   fogLayer.className = 'fog-layer';
 
-  if (revealedCircles.length > 0) {
-    const cutoutMasks = revealedCircles
-      .map((circle) => {
-        return `radial-gradient(circle ${circle.radius}px at ${circle.x}px ${circle.y}px, transparent 98%, black 100%)`;
-      })
-      .join(', ');
+  // Use an SVG mask so every revealed circle reliably cuts a hole in the fog.
+  const mapWidth = mapField.clientWidth;
+  const mapHeight = mapField.clientHeight;
+  const svgNs = 'http://www.w3.org/2000/svg';
+  const svg = document.createElementNS(svgNs, 'svg');
+  const defs = document.createElementNS(svgNs, 'defs');
+  const mask = document.createElementNS(svgNs, 'mask');
+  const maskRect = document.createElementNS(svgNs, 'rect');
+  const fogRect = document.createElementNS(svgNs, 'rect');
 
-    fogLayer.style.webkitMaskImage = cutoutMasks;
-    fogLayer.style.maskImage = cutoutMasks;
-  }
+  svg.setAttribute('class', 'fog-svg');
+  svg.setAttribute('viewBox', `0 0 ${mapWidth} ${mapHeight}`);
+  svg.setAttribute('preserveAspectRatio', 'none');
+  svg.setAttribute('width', '100%');
+  svg.setAttribute('height', '100%');
+
+  mask.setAttribute('id', 'fog-cutout-mask');
+  mask.setAttribute('maskUnits', 'userSpaceOnUse');
+  mask.setAttribute('x', '0');
+  mask.setAttribute('y', '0');
+  mask.setAttribute('width', String(mapWidth));
+  mask.setAttribute('height', String(mapHeight));
+
+  maskRect.setAttribute('x', '0');
+  maskRect.setAttribute('y', '0');
+  maskRect.setAttribute('width', String(mapWidth));
+  maskRect.setAttribute('height', String(mapHeight));
+  maskRect.setAttribute('fill', 'white');
+  mask.appendChild(maskRect);
+
+  revealedCircles.forEach((circle) => {
+    const hole = document.createElementNS(svgNs, 'circle');
+    hole.setAttribute('cx', String(circle.x));
+    hole.setAttribute('cy', String(circle.y));
+    hole.setAttribute('r', String(circle.radius));
+    hole.setAttribute('fill', 'black');
+    mask.appendChild(hole);
+  });
+
+  defs.appendChild(mask);
+  svg.appendChild(defs);
+
+  fogRect.setAttribute('x', '0');
+  fogRect.setAttribute('y', '0');
+  fogRect.setAttribute('width', String(mapWidth));
+  fogRect.setAttribute('height', String(mapHeight));
+  fogRect.setAttribute('fill', '#6e747e');
+  fogRect.setAttribute('mask', 'url(#fog-cutout-mask)');
+  svg.appendChild(fogRect);
+
+  fogLayer.appendChild(svg);
 
   mapField.appendChild(fogLayer);
 };
@@ -80,7 +135,7 @@ const renderRevealRings = () => {
   const existingRings = mapField.querySelectorAll('.reveal-ring');
   existingRings.forEach((ring) => ring.remove());
 
-  if (!game.showFog) {
+  if (!game.showFog || !game.showRevealRings) {
     return;
   }
 
@@ -103,6 +158,10 @@ const isInsideRevealedArea = (x, y) => {
     const distance = Math.sqrt(dx * dx + dy * dy);
     return distance <= circle.radius;
   });
+};
+
+const isVillageRevealed = () => {
+  return isInsideRevealedArea(villageGoal.x, villageGoal.y);
 };
 
 // Convert icon types into simple emoji so beginners can see each object quickly.
@@ -168,11 +227,33 @@ const renderGameIcons = () => {
   });
 };
 
+// Draw temporary scout pins so players can test possible goal spots.
+const renderScoutPoints = () => {
+  const existingPins = mapField.querySelectorAll('.scout-pin');
+  existingPins.forEach((pin) => pin.remove());
+
+  if (!game.scoutMode) {
+    return;
+  }
+
+  scoutPoints.forEach((point, index) => {
+    const pin = document.createElement('span');
+    pin.className = 'scout-pin';
+    pin.style.left = `${point.x}px`;
+    pin.style.top = `${point.y}px`;
+    pin.textContent = String(index + 1);
+    pin.setAttribute('aria-label', `Scout point ${index + 1}`);
+    mapField.appendChild(pin);
+  });
+};
+
 // Main draw pass: process fog first, then draw visible icons.
 const draw = () => {
+  // DOM equivalent of canvas destination-out: each revealed circle cuts a hole in fog.
   setupMapLayer();
   renderRevealRings();
   renderGameIcons();
+  renderScoutPoints();
 };
 
 // Show the most recent click result
@@ -182,7 +263,7 @@ gameContainer.appendChild(lastActionDiv);
 
 // Update the game display
 const updateDisplay = () => {
-  infoDiv.textContent = `Drips Remaining: ${game.drips} | Tiles Revealed: ${game.revealedAreas.size}/${game.maxReveals}`;
+  infoDiv.textContent = `Drips Remaining: ${game.drips} | Revealed Circles: ${revealedCircles.length}/${game.maxReveals}`;
 };
 
 // Place a visible marker where the player clicked
@@ -199,7 +280,7 @@ const placeDropMarker = (x, y) => {
 const endGame = (won) => {
   game.gameActive = false;
   lastActionDiv.textContent = won
-    ? '🎉 Great work! You explored enough tiles to help the village.'
+    ? '🎉 You found the village and completed the mission!'
     : '💧 Out of drips! Try again!';
 };
 
@@ -214,17 +295,32 @@ const onMapClick = (event) => {
   const y = event.clientY - rect.top;
   const tileX = Math.floor(x / game.tileSize);
   const tileY = Math.floor(y / game.tileSize);
-  const tileKey = `${tileX},${tileY}`;
 
-  // Ignore repeat clicks on the same tile.
-  if (game.revealedAreas.has(tileKey)) {
-    lastActionDiv.textContent = `You already clicked tile (${tileX}, ${tileY}). Try a new one!`;
+  // Scout mode ignores game rules so you can pick target coordinates anywhere.
+  if (game.scoutMode) {
+    const point = { x: Math.round(x), y: Math.round(y) };
+    scoutPoints.push(point);
+    draw();
+    coordReadoutDiv.textContent = `Scout Mode: cursor (${point.x}, ${point.y}) | Last click #${scoutPoints.length} at (${point.x}, ${point.y})`;
+    lastActionDiv.textContent = `Scout point #${scoutPoints.length}: (${point.x}, ${point.y}) on tile (${tileX}, ${tileY}).`;
     return;
   }
 
-  // One click costs one drip.
+  // Ignore clicks outside currently revealed circles.
+  if (!isInsideRevealedArea(x, y)) {
+    lastActionDiv.textContent = 'That area is still hidden by fog. Click inside a revealed circle.';
+    return;
+  }
+
+  // Valid reveal click: spend one drip and instantly reveal a new 75px-radius circle.
   game.drips -= 1;
-  game.revealedAreas.add(tileKey);
+  revealedCircles.push({
+    x: Math.round(x),
+    y: Math.round(y),
+    diameter: 150,
+    radius: 75,
+  });
+
   placeDropMarker(x, y);
   lastActionDiv.textContent = `You clicked tile (${tileX}, ${tileY}) at (${Math.round(x)}, ${Math.round(y)}).`;
 
@@ -235,22 +331,40 @@ const onMapClick = (event) => {
       y: Math.round(y),
       tileX,
       tileY,
-      tileKey,
     },
   });
   mapField.dispatchEvent(mapClickEvent);
 
+  draw();
   updateDisplay();
 
-  if (game.revealedAreas.size >= game.maxReveals) {
+  if (isVillageRevealed()) {
     endGame(true);
   } else if (game.drips <= 0) {
     endGame(false);
   }
 };
 
+// Update live coordinate readout while moving over the map.
+const onMapMove = (event) => {
+  const rect = mapField.getBoundingClientRect();
+  const x = Math.round(event.clientX - rect.left);
+  const y = Math.round(event.clientY - rect.top);
+  coordReadoutDiv.textContent = game.scoutMode
+    ? `Scout Mode: cursor (${x}, ${y})`
+    : `Cursor (${x}, ${y})`;
+};
+
+const onMapLeave = () => {
+  coordReadoutDiv.textContent = game.scoutMode
+    ? 'Scout Mode: move over the map to see coordinates.'
+    : 'Move over the map to see coordinates.';
+};
+
 // Main click listener for the map field.
 mapField.addEventListener('click', onMapClick);
+mapField.addEventListener('mousemove', onMapMove);
+mapField.addEventListener('mouseleave', onMapLeave);
 
 // Example listener showing how you can hook game logic into map clicks later.
 mapField.addEventListener('mapTileClicked', (event) => {
@@ -261,4 +375,5 @@ mapField.addEventListener('mapTileClicked', (event) => {
 // Initialize display
 draw();
 updateDisplay();
+onMapLeave();
 lastActionDiv.textContent = 'Click anywhere on the map to reveal a tile.';
