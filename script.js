@@ -263,7 +263,7 @@ gameContainer.appendChild(lastActionDiv);
 
 // Update the game display
 const updateDisplay = () => {
-  infoDiv.textContent = `Drips Remaining: ${game.drips} | Revealed Circles: ${revealedCircles.length}/${game.maxReveals}`;
+  infoDiv.textContent = `Drips Remaining: ${game.drips}`;
 };
 
 // Place a visible marker where the player clicked
