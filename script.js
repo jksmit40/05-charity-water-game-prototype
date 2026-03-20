@@ -27,8 +27,8 @@ const revealedCircles = firstJerryCan
       {
         x: firstJerryCan.x,
         y: firstJerryCan.y,
-        diameter: 60,
-        radius: 30,
+        diameter: 100,
+        radius: 50,
       },
     ]
   : [];
@@ -51,13 +51,58 @@ gameContainer.appendChild(mapField);
 
 // Add a fog overlay above the map so the tileset is hidden until reveal logic is added.
 const setupMapLayer = () => {
+  const existingFogLayers = mapField.querySelectorAll('.fog-layer');
+  existingFogLayers.forEach((layer) => layer.remove());
+
   if (!game.showFog) {
     return;
   }
 
   const fogLayer = document.createElement('div');
   fogLayer.className = 'fog-layer';
+
+  if (revealedCircles.length > 0) {
+    const cutoutMasks = revealedCircles
+      .map((circle) => {
+        return `radial-gradient(circle ${circle.radius}px at ${circle.x}px ${circle.y}px, transparent 98%, black 100%)`;
+      })
+      .join(', ');
+
+    fogLayer.style.webkitMaskImage = cutoutMasks;
+    fogLayer.style.maskImage = cutoutMasks;
+  }
+
   mapField.appendChild(fogLayer);
+};
+
+// Draw circle outlines so players can clearly see revealed boundaries in the fog.
+const renderRevealRings = () => {
+  const existingRings = mapField.querySelectorAll('.reveal-ring');
+  existingRings.forEach((ring) => ring.remove());
+
+  if (!game.showFog) {
+    return;
+  }
+
+  revealedCircles.forEach((circle) => {
+    const ring = document.createElement('div');
+    ring.className = 'reveal-ring';
+    ring.style.left = `${circle.x}px`;
+    ring.style.top = `${circle.y}px`;
+    ring.style.width = `${circle.diameter}px`;
+    ring.style.height = `${circle.diameter}px`;
+    mapField.appendChild(ring);
+  });
+};
+
+// Returns true when a point is inside at least one revealed circle.
+const isInsideRevealedArea = (x, y) => {
+  return revealedCircles.some((circle) => {
+    const dx = x - circle.x;
+    const dy = y - circle.y;
+    const distance = Math.sqrt(dx * dx + dy * dy);
+    return distance <= circle.radius;
+  });
 };
 
 // Convert icon types into simple emoji so beginners can see each object quickly.
@@ -96,6 +141,10 @@ const renderGameIcons = () => {
       return;
     }
 
+    if (!isInsideRevealedArea(iconData.x, iconData.y)) {
+      return;
+    }
+
     const iconImagePath = getIconImagePath(iconData.type);
 
     if (iconImagePath) {
@@ -117,6 +166,13 @@ const renderGameIcons = () => {
     iconElement.setAttribute('aria-label', iconData.type);
     mapField.appendChild(iconElement);
   });
+};
+
+// Main draw pass: process fog first, then draw visible icons.
+const draw = () => {
+  setupMapLayer();
+  renderRevealRings();
+  renderGameIcons();
 };
 
 // Show the most recent click result
@@ -203,7 +259,6 @@ mapField.addEventListener('mapTileClicked', (event) => {
 });
 
 // Initialize display
-setupMapLayer();
-renderGameIcons();
+draw();
 updateDisplay();
 lastActionDiv.textContent = 'Click anywhere on the map to reveal a tile.';

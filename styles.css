@@ -101,6 +101,16 @@ body {
   z-index: 1;
 }
 
+.reveal-ring {
+  position: absolute;
+  transform: translate(-50%, -50%);
+  border: 2px solid rgba(255, 255, 255, 0.9);
+  border-radius: 50%;
+  box-shadow: 0 0 0 2px rgba(0, 173, 239, 0.45);
+  pointer-events: none;
+  z-index: 3;
+}
+
 #last-action {
   margin-top: 12px;
   font-size: 16px;
