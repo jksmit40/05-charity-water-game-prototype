@@ -152,6 +152,70 @@ body {
   min-height: 24px;
 }
 
+#end-modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(6, 28, 45, 0.55);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 20px;
+  box-sizing: border-box;
+  z-index: 100;
+}
+
+#end-modal-overlay.hidden {
+  display: none;
+}
+
+#end-modal-card {
+  width: min(460px, 100%);
+  background: #ffffff;
+  border: 4px solid var(--yellow);
+  border-radius: 14px;
+  box-shadow: 0 14px 40px rgba(0, 0, 0, 0.26);
+  padding: 20px;
+  box-sizing: border-box;
+  text-align: center;
+}
+
+#end-modal-title {
+  margin: 0 0 10px;
+  color: #052034;
+}
+
+#end-modal-message {
+  margin: 0 0 16px;
+  color: #0f3853;
+  font-weight: 600;
+}
+
+#end-modal-buttons {
+  display: flex;
+  gap: 10px;
+  justify-content: center;
+  flex-wrap: wrap;
+}
+
+#end-modal-buttons button {
+  border: none;
+  border-radius: 10px;
+  padding: 10px 14px;
+  font-size: 15px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+#reset-level-btn {
+  background: var(--blue);
+  color: #ffffff;
+}
+
+#next-level-btn {
+  background: var(--yellow);
+  color: #1b1b1b;
+}
+
 @keyframes pop-in {
   from {
     opacity: 0;

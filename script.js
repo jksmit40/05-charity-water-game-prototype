@@ -3,6 +3,7 @@
 // Game state
 const game = {
   drips: 20, // Starting drips (clicks)
+  score: 0,
   maxReveals: 6,
   tileSize: 48,
   showFog: true,
@@ -46,22 +47,31 @@ const villageGoal = {
 const gameContainer = document.getElementById('game-area');
 gameContainer.style.fontFamily = 'Arial, sans-serif';
 
-// Display game info
-const infoDiv = document.createElement('div');
-infoDiv.id = 'game-info';
-gameContainer.appendChild(infoDiv);
+// Grab UI elements created in HTML.
+const infoDiv = document.getElementById('game-info');
+const coordReadoutDiv = document.getElementById('coord-readout');
+const mapField = document.getElementById('map-field');
+const lastActionDiv = document.getElementById('last-action');
+const endModalOverlay = document.getElementById('end-modal-overlay');
+const endModalTitle = document.getElementById('end-modal-title');
+const endModalMessage = document.getElementById('end-modal-message');
+const resetLevelButton = document.getElementById('reset-level-btn');
+const nextLevelButton = document.getElementById('next-level-btn');
 
-// Live coordinate readout to help choose exact village goal location.
-const coordReadoutDiv = document.createElement('div');
-coordReadoutDiv.id = 'coord-readout';
-gameContainer.appendChild(coordReadoutDiv);
-
-// Create map field where the tileset image lives
-const mapField = document.createElement('div');
-mapField.id = 'map-field';
-mapField.setAttribute('role', 'button');
-mapField.setAttribute('aria-label', 'Interactive game map. Click to reveal tiles.');
-gameContainer.appendChild(mapField);
+if (
+  !gameContainer ||
+  !infoDiv ||
+  !coordReadoutDiv ||
+  !mapField ||
+  !lastActionDiv ||
+  !endModalOverlay ||
+  !endModalTitle ||
+  !endModalMessage ||
+  !resetLevelButton ||
+  !nextLevelButton
+) {
+  throw new Error('Missing required game UI elements in index.html');
+}
 
 // Add a fog overlay above the map so the tileset is hidden until reveal logic is added.
 const setupMapLayer = () => {
@@ -256,14 +266,25 @@ const draw = () => {
   renderScoutPoints();
 };
 
-// Show the most recent click result
-const lastActionDiv = document.createElement('div');
-lastActionDiv.id = 'last-action';
-gameContainer.appendChild(lastActionDiv);
+const showEndModal = (title, message) => {
+  endModalTitle.textContent = title;
+  endModalMessage.textContent = message;
+  endModalOverlay.classList.remove('hidden');
+};
+
+// Reset button refreshes the page so all game state starts fresh.
+resetLevelButton.addEventListener('click', () => {
+  window.location.reload();
+});
+
+// Placeholder for a future level flow.
+nextLevelButton.addEventListener('click', () => {
+  lastActionDiv.textContent = 'Next level is not built yet. Coming soon!';
+});
 
 // Update the game display
 const updateDisplay = () => {
-  infoDiv.textContent = `Drips Remaining: ${game.drips}`;
+  infoDiv.textContent = `Drips Remaining: ${game.drips} | Score: ${game.score}`;
 };
 
 // Place a visible marker where the player clicked
@@ -279,9 +300,29 @@ const placeDropMarker = (x, y) => {
 // End game function
 const endGame = (won) => {
   game.gameActive = false;
-  lastActionDiv.textContent = won
-    ? '🎉 You found the village and completed the mission!'
-    : '💧 Out of drips! Try again!';
+
+  if (won) {
+    // Score rules: 100 for finding the village + 5 for each drip left.
+    game.score = 100 + game.drips * 5;
+
+    // Reveal the full map when the village is found.
+    game.showFog = false;
+    draw();
+  }
+
+  updateDisplay();
+
+  if (won) {
+    showEndModal(
+      'Mission Complete!',
+      `You found the village. Final score: ${game.score}`
+    );
+    lastActionDiv.textContent = 'Great work! Choose what to do next.';
+    return;
+  }
+
+  showEndModal('Out of Drips', 'You ran out of drips. Try the level again.');
+  lastActionDiv.textContent = 'Choose an option below to continue.';
 };
 
 // Handle map click interactions
