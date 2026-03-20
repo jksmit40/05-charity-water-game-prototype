@@ -4,6 +4,7 @@
 const game = {
   drips: 20, // Starting drips (clicks)
   score: 0,
+  currentLevel: 1,
   maxReveals: 6,
   tileSize: 48,
   showFog: true,
@@ -11,6 +12,25 @@ const game = {
   scoutMode: false,
   gameActive: true,
 };
+
+// Level list includes placeholders so future content can be plugged in easily.
+const levels = [
+  {
+    id: 1,
+    name: 'Village Search',
+    isPlaceholder: false,
+  },
+  {
+    id: 2,
+    name: 'Pump Network',
+    isPlaceholder: true,
+  },
+  {
+    id: 3,
+    name: 'Water Route',
+    isPlaceholder: true,
+  },
+];
 
 const scoutPoints = [];
 
@@ -272,19 +292,83 @@ const showEndModal = (title, message) => {
   endModalOverlay.classList.remove('hidden');
 };
 
+const hideEndModal = () => {
+  endModalOverlay.classList.add('hidden');
+};
+
+const getCurrentLevelData = () => {
+  return levels.find((level) => level.id === game.currentLevel) || levels[0];
+};
+
+const resetRevealedCirclesToStart = () => {
+  revealedCircles.length = 0;
+
+  if (firstJerryCan) {
+    revealedCircles.push({
+      x: firstJerryCan.x,
+      y: firstJerryCan.y,
+      diameter: 100,
+      radius: 50,
+    });
+  }
+};
+
+const clearRoundVisuals = () => {
+  const existingMarkers = mapField.querySelectorAll('.drop-marker');
+  existingMarkers.forEach((marker) => marker.remove());
+};
+
+const loadLevel = (levelId) => {
+  const level = levels.find((entry) => entry.id === levelId);
+
+  if (!level) {
+    return;
+  }
+
+  game.currentLevel = level.id;
+  game.drips = 20;
+  game.score = 0;
+  game.showFog = true;
+  game.gameActive = true;
+
+  scoutPoints.length = 0;
+  resetRevealedCirclesToStart();
+  clearRoundVisuals();
+  hideEndModal();
+  draw();
+  updateDisplay();
+  onMapLeave();
+
+  if (level.isPlaceholder) {
+    lastActionDiv.textContent = `Level ${level.id} (${level.name}) is a placeholder. Core logic is active while assets are in progress.`;
+    return;
+  }
+
+  lastActionDiv.textContent = `Level ${level.id}: Click anywhere on the map to reveal a tile.`;
+};
+
 // Reset button refreshes the page so all game state starts fresh.
 resetLevelButton.addEventListener('click', () => {
-  window.location.reload();
+  loadLevel(game.currentLevel);
 });
 
-// Placeholder for a future level flow.
+// Move to the next level slot (placeholder levels are supported).
 nextLevelButton.addEventListener('click', () => {
-  lastActionDiv.textContent = 'Next level is not built yet. Coming soon!';
+  const nextLevelId = game.currentLevel + 1;
+
+  if (nextLevelId > levels.length) {
+    lastActionDiv.textContent = 'No more levels yet. Returning to Level 1.';
+    loadLevel(1);
+    return;
+  }
+
+  loadLevel(nextLevelId);
 });
 
 // Update the game display
 const updateDisplay = () => {
-  infoDiv.textContent = `Drips Remaining: ${game.drips} | Score: ${game.score}`;
+  const currentLevel = getCurrentLevelData();
+  infoDiv.textContent = `Level ${currentLevel.id}: ${currentLevel.name} | Drips Remaining: ${game.drips} | Score: ${game.score}`;
 };
 
 // Place a visible marker where the player clicked
@@ -414,7 +498,4 @@ mapField.addEventListener('mapTileClicked', (event) => {
 });
 
 // Initialize display
-draw();
-updateDisplay();
-onMapLeave();
-lastActionDiv.textContent = 'Click anywhere on the map to reveal a tile.';
+loadLevel(1);
