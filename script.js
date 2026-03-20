@@ -13,6 +13,12 @@ const game = {
   gameActive: true,
 };
 
+// Turn this on only when placing future assets on the tileset.
+const developerTools = {
+  enabled: false,
+  scoutMode: true,
+};
+
 // Level list includes placeholders so future content can be plugged in easily.
 const levels = [
   {
@@ -91,6 +97,11 @@ if (
   !nextLevelButton
 ) {
   throw new Error('Missing required game UI elements in index.html');
+}
+
+// Keep coordinate/scout tools hidden for normal player gameplay.
+if (!developerTools.enabled) {
+  coordReadoutDiv.style.display = 'none';
 }
 
 // Add a fog overlay above the map so the tileset is hidden until reveal logic is added.
@@ -262,7 +273,7 @@ const renderScoutPoints = () => {
   const existingPins = mapField.querySelectorAll('.scout-pin');
   existingPins.forEach((pin) => pin.remove());
 
-  if (!game.scoutMode) {
+  if (!developerTools.enabled || !game.scoutMode) {
     return;
   }
 
@@ -422,7 +433,7 @@ const onMapClick = (event) => {
   const tileY = Math.floor(y / game.tileSize);
 
   // Scout mode ignores game rules so you can pick target coordinates anywhere.
-  if (game.scoutMode) {
+  if (developerTools.enabled && game.scoutMode) {
     const point = { x: Math.round(x), y: Math.round(y) };
     scoutPoints.push(point);
     draw();
@@ -472,6 +483,10 @@ const onMapClick = (event) => {
 
 // Update live coordinate readout while moving over the map.
 const onMapMove = (event) => {
+  if (!developerTools.enabled) {
+    return;
+  }
+
   const rect = mapField.getBoundingClientRect();
   const x = Math.round(event.clientX - rect.left);
   const y = Math.round(event.clientY - rect.top);
@@ -481,6 +496,10 @@ const onMapMove = (event) => {
 };
 
 const onMapLeave = () => {
+  if (!developerTools.enabled) {
+    return;
+  }
+
   coordReadoutDiv.textContent = game.scoutMode
     ? 'Scout Mode: move over the map to see coordinates.'
     : 'Move over the map to see coordinates.';
@@ -498,4 +517,5 @@ mapField.addEventListener('mapTileClicked', (event) => {
 });
 
 // Initialize display
+game.scoutMode = developerTools.enabled && developerTools.scoutMode;
 loadLevel(1);
