@@ -1,5 +1,9 @@
 // Charity Water Game - click inside the map field to interact with the tileset.
 
+// -------------------------------
+// Section: Core State + Config
+// -------------------------------
+
 // Game state
 const game = {
   drips: 20, // Starting drips (clicks)
@@ -108,6 +112,10 @@ const townCenterGoal = {
   y: 402,
 };
 
+// -------------------------------
+// Section: DOM Elements
+// -------------------------------
+
 // Game setup
 const gameContainer = document.getElementById('game-area');
 gameContainer.style.fontFamily = 'Arial, sans-serif';
@@ -167,6 +175,10 @@ tutorialTargetImage.addEventListener('load', () => {
 if (!developerTools.enabled) {
   coordReadoutDiv.style.display = 'none';
 }
+
+// -------------------------------
+// Section: Render Helpers
+// -------------------------------
 
 // Add a fog overlay above the map so the tileset is hidden until reveal logic is added.
 const setupMapLayer = () => {
@@ -313,6 +325,10 @@ const queueNextRevealFrame = () => {
     draw();
   });
 };
+
+// -------------------------------
+// Section: Game Rules + Data Helpers
+// -------------------------------
 
 const isTownCenterRevealed = () => {
   return isInsideRevealedArea(townCenterGoal.x, townCenterGoal.y);
@@ -476,6 +492,10 @@ const draw = () => {
   }
 };
 
+// -------------------------------
+// Section: UI Messaging + Modals
+// -------------------------------
+
 const showEndModal = (title, message) => {
   endModalTitle.textContent = title;
   endModalMessage.textContent = message;
@@ -537,6 +557,10 @@ const clearRoundVisuals = () => {
     revealAnimationFrameId = null;
   }
 };
+
+// -------------------------------
+// Section: Level Flow
+// -------------------------------
 
 const loadLevel = (levelId) => {
   const level = levels.find((entry) => entry.id === levelId);
@@ -603,6 +627,10 @@ startMissionButton.addEventListener('click', () => {
   hideTutorialModal();
 });
 
+// -------------------------------
+// Section: Score + End States
+// -------------------------------
+
 // Update the game display
 const updateDisplay = () => {
   const currentLevel = getCurrentLevelData();
@@ -637,25 +665,48 @@ const endGame = (won) => {
   lastActionDiv.textContent = 'Choose an option below to continue.';
 };
 
+// -------------------------------
+// Section: Click + Input Handlers
+// -------------------------------
+
+// Converts browser click position to map-local values and tile indexes.
+const getMapClickData = (event) => {
+  const rect = mapField.getBoundingClientRect();
+  const x = event.clientX - rect.left;
+  const y = event.clientY - rect.top;
+
+  return {
+    x,
+    y,
+    tileX: Math.floor(x / game.tileSize),
+    tileY: Math.floor(y / game.tileSize),
+  };
+};
+
+const handleScoutClick = (x, y, tileX, tileY) => {
+  const point = { x: Math.round(x), y: Math.round(y) };
+  scoutPoints.push(point);
+  draw();
+  coordReadoutDiv.textContent = `Scout Mode: cursor (${point.x}, ${point.y}) | Last click #${scoutPoints.length} at (${point.x}, ${point.y})`;
+  lastActionDiv.textContent = `Scout point #${scoutPoints.length}: (${point.x}, ${point.y}) on tile (${tileX}, ${tileY}).`;
+};
+
+const handleRevealClick = (x, y) => {
+  game.drips -= 1;
+  revealedCircles.push(createAnimatedRevealCircle(x, y, clickRevealRadius));
+};
+
 // Handle map click interactions
 const onMapClick = (event) => {
   if (!game.gameActive) {
     return;
   }
 
-  const rect = mapField.getBoundingClientRect();
-  const x = event.clientX - rect.left;
-  const y = event.clientY - rect.top;
-  const tileX = Math.floor(x / game.tileSize);
-  const tileY = Math.floor(y / game.tileSize);
+  const { x, y, tileX, tileY } = getMapClickData(event);
 
   // Scout mode ignores game rules so you can pick target coordinates anywhere.
   if (developerTools.enabled && game.scoutMode) {
-    const point = { x: Math.round(x), y: Math.round(y) };
-    scoutPoints.push(point);
-    draw();
-    coordReadoutDiv.textContent = `Scout Mode: cursor (${point.x}, ${point.y}) | Last click #${scoutPoints.length} at (${point.x}, ${point.y})`;
-    lastActionDiv.textContent = `Scout point #${scoutPoints.length}: (${point.x}, ${point.y}) on tile (${tileX}, ${tileY}).`;
+    handleScoutClick(x, y, tileX, tileY);
     return;
   }
 
@@ -666,8 +717,7 @@ const onMapClick = (event) => {
   }
 
   // Valid reveal click: spend one drip and start a reveal wave.
-  game.drips -= 1;
-  revealedCircles.push(createAnimatedRevealCircle(x, y, clickRevealRadius));
+  handleRevealClick(x, y);
 
   showNextCharityFact();
 
