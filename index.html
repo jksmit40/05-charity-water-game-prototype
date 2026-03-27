@@ -31,6 +31,25 @@
                 </div>
             </div>
         </div>
+
+        <div id="tutorial-modal-overlay" class="hidden" role="dialog" aria-modal="true" aria-labelledby="tutorial-modal-title">
+            <div id="tutorial-modal-card">
+                <h2 id="tutorial-modal-title"></h2>
+                <p id="tutorial-modal-message"></p>
+                <ol id="tutorial-modal-steps"></ol>
+                <div id="tutorial-target-preview">
+                    <img
+                        id="tutorial-target-image"
+                        src="img/town-center.png"
+                        alt="Example of the town center target"
+                    >
+                    <p id="tutorial-target-fallback" class="hidden">
+                        Add img/town-center.png to show the town center target preview here.
+                    </p>
+                </div>
+                <button id="start-mission-btn" type="button">Start Mission</button>
+            </div>
+        </div>
     </main>
     <script src="script.js"></script>
 </body>

@@ -23,7 +23,7 @@ const developerTools = {
 const levels = [
   {
     id: 1,
-    name: 'Village Search',
+    name: 'Northern Uganda',
     isPlaceholder: false,
   },
   {
@@ -39,6 +39,7 @@ const levels = [
 ];
 
 const scoutPoints = [];
+let tutorialShownThisSession = false;
 
 // Interactive map objects. Each icon has a position, a type, and reveal state.
 const gameIcons = [
@@ -63,8 +64,8 @@ const revealedCircles = firstJerryCan
     ]
   : [];
 
-// Hidden village goal location on the tileset (no visible icon required).
-const villageGoal = {
+// Hidden town center goal location on the tileset (no visible icon required).
+const townCenterGoal = {
   x: 977,
   y: 402,
 };
@@ -83,6 +84,13 @@ const endModalTitle = document.getElementById('end-modal-title');
 const endModalMessage = document.getElementById('end-modal-message');
 const resetLevelButton = document.getElementById('reset-level-btn');
 const nextLevelButton = document.getElementById('next-level-btn');
+const tutorialModalOverlay = document.getElementById('tutorial-modal-overlay');
+const tutorialModalTitle = document.getElementById('tutorial-modal-title');
+const tutorialModalMessage = document.getElementById('tutorial-modal-message');
+const tutorialModalSteps = document.getElementById('tutorial-modal-steps');
+const tutorialTargetImage = document.getElementById('tutorial-target-image');
+const tutorialTargetFallback = document.getElementById('tutorial-target-fallback');
+const startMissionButton = document.getElementById('start-mission-btn');
 
 if (
   !gameContainer ||
@@ -94,10 +102,28 @@ if (
   !endModalTitle ||
   !endModalMessage ||
   !resetLevelButton ||
-  !nextLevelButton
+  !nextLevelButton ||
+  !tutorialModalOverlay ||
+  !tutorialModalTitle ||
+  !tutorialModalMessage ||
+  !tutorialModalSteps ||
+  !tutorialTargetImage ||
+  !tutorialTargetFallback ||
+  !startMissionButton
 ) {
   throw new Error('Missing required game UI elements in index.html');
 }
+
+// Show fallback text if the tutorial target image file is missing.
+tutorialTargetImage.addEventListener('error', () => {
+  tutorialTargetImage.style.display = 'none';
+  tutorialTargetFallback.classList.remove('hidden');
+});
+
+tutorialTargetImage.addEventListener('load', () => {
+  tutorialTargetImage.style.display = 'block';
+  tutorialTargetFallback.classList.add('hidden');
+});
 
 // Keep coordinate/scout tools hidden for normal player gameplay.
 if (!developerTools.enabled) {
@@ -201,8 +227,8 @@ const isInsideRevealedArea = (x, y) => {
   });
 };
 
-const isVillageRevealed = () => {
-  return isInsideRevealedArea(villageGoal.x, villageGoal.y);
+const isTownCenterRevealed = () => {
+  return isInsideRevealedArea(townCenterGoal.x, townCenterGoal.y);
 };
 
 // Convert icon types into simple emoji so beginners can see each object quickly.
@@ -307,6 +333,24 @@ const hideEndModal = () => {
   endModalOverlay.classList.add('hidden');
 };
 
+const showTutorialModal = (level) => {
+  tutorialModalTitle.textContent = `Goal: Find the Town Center to connect it to clean water.`;
+  tutorialModalMessage.textContent = 'Follow these steps to complete your mission:';
+  tutorialModalSteps.innerHTML = `
+    <li><span class="tutorial-step-icon">1</span><span class="tutorial-step-text">Study the image so you know the town center target.</span></li>
+    <li><span class="tutorial-step-icon">2</span><span class="tutorial-step-text">Click inside revealed circles. Each click uses 1 drip.</span></li>
+    <li><span class="tutorial-step-icon">3</span><span class="tutorial-step-text">Find pumps and jerrycans to reveal extra map space.</span></li>
+    <li><span class="tutorial-step-icon">4</span><span class="tutorial-step-text">Keep expanding fog holes until the town center appears.</span></li>
+    <li><span class="tutorial-step-icon">5</span><span class="tutorial-step-text">Finish with more drips left to earn a higher score.</span></li>
+  `;
+  tutorialModalOverlay.classList.remove('hidden');
+  tutorialShownThisSession = true;
+};
+
+const hideTutorialModal = () => {
+  tutorialModalOverlay.classList.add('hidden');
+};
+
 const getCurrentLevelData = () => {
   return levels.find((level) => level.id === game.currentLevel) || levels[0];
 };
@@ -346,6 +390,7 @@ const loadLevel = (levelId) => {
   resetRevealedCirclesToStart();
   clearRoundVisuals();
   hideEndModal();
+  hideTutorialModal();
   draw();
   updateDisplay();
   onMapLeave();
@@ -355,7 +400,12 @@ const loadLevel = (levelId) => {
     return;
   }
 
-  lastActionDiv.textContent = `Level ${level.id}: Click anywhere on the map to reveal a tile.`;
+  lastActionDiv.textContent = `Level ${level.id}: Find the hidden town center before you run out of drips.`;
+
+  // Show tutorial only once when the page is first loaded.
+  if (!tutorialShownThisSession) {
+    showTutorialModal(level);
+  }
 };
 
 // Reset button refreshes the page so all game state starts fresh.
@@ -374,6 +424,10 @@ nextLevelButton.addEventListener('click', () => {
   }
 
   loadLevel(nextLevelId);
+});
+
+startMissionButton.addEventListener('click', () => {
+  hideTutorialModal();
 });
 
 // Update the game display
@@ -397,10 +451,10 @@ const endGame = (won) => {
   game.gameActive = false;
 
   if (won) {
-    // Score rules: 100 for finding the village + 5 for each drip left.
+    // Score rules: 100 for finding the town center + 5 for each drip left.
     game.score = 100 + game.drips * 5;
 
-    // Reveal the full map when the village is found.
+    // Reveal the full map when the town center is found.
     game.showFog = false;
     draw();
   }
@@ -410,7 +464,7 @@ const endGame = (won) => {
   if (won) {
     showEndModal(
       'Mission Complete!',
-      `You found the village. Final score: ${game.score}`
+      `You found the town center. Final score: ${game.score}`
     );
     lastActionDiv.textContent = 'Great work! Choose what to do next.';
     return;
@@ -474,7 +528,7 @@ const onMapClick = (event) => {
   draw();
   updateDisplay();
 
-  if (isVillageRevealed()) {
+  if (isTownCenterRevealed()) {
     endGame(true);
   } else if (game.drips <= 0) {
     endGame(false);

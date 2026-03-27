@@ -17,6 +17,10 @@ Secondary Colors:
   --tileset-image: url("img/tileset.png");
 }
 
+.hidden {
+  display: none;
+}
+
 body {
   margin: 0;
   min-height: 100vh;
@@ -188,6 +192,138 @@ body {
   margin: 0 0 16px;
   color: #0f3853;
   font-weight: 600;
+}
+
+#tutorial-modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(6, 28, 45, 0.55);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 20px;
+  box-sizing: border-box;
+  z-index: 110;
+}
+
+#tutorial-modal-overlay.hidden {
+  display: none;
+}
+
+#tutorial-modal-card {
+  width: min(720px, 100%);
+  background: #ffffff;
+  border: 4px solid var(--yellow);
+  border-radius: 14px;
+  box-shadow: 0 14px 40px rgba(0, 0, 0, 0.26);
+  padding: 20px;
+  box-sizing: border-box;
+  text-align: left;
+}
+
+#tutorial-modal-title {
+  margin: 0 0 10px;
+  color: #052034;
+}
+
+#tutorial-modal-message {
+  margin: 0 0 10px;
+  color: #0f3853;
+  font-weight: 600;
+  line-height: 1.75;
+  word-spacing: 0.06em;
+}
+
+#tutorial-modal-steps {
+  margin: 0 0 16px;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: 10px;
+}
+
+#tutorial-modal-steps li {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  line-height: 1.45;
+  font-weight: 700;
+  color: #0f3853;
+  background: #f3f9ff;
+}
+
+#tutorial-modal-steps li:nth-child(1) {
+  background: #fff7e7;
+}
+
+#tutorial-modal-steps li:nth-child(2) {
+  background: #eaf8ff;
+}
+
+#tutorial-modal-steps li:nth-child(3) {
+  background: #ecfff1;
+}
+
+#tutorial-modal-steps li:nth-child(4) {
+  background: #fff3ec;
+}
+
+#tutorial-modal-steps li:nth-child(5) {
+  background: #f3efff;
+}
+
+.tutorial-step-icon {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 13px;
+  line-height: 1;
+  background: #0f3853;
+  color: #ffffff;
+  flex: 0 0 24px;
+}
+
+.tutorial-step-text {
+  font-size: 15px;
+  letter-spacing: 0.01em;
+}
+
+#tutorial-target-preview {
+  margin: 0 0 16px;
+  padding: 10px;
+  border: 2px dashed rgba(0, 173, 239, 0.4);
+  border-radius: 10px;
+  background: #f1fbff;
+}
+
+#tutorial-target-image {
+  width: min(100%, 210px);
+  height: auto;
+  display: block;
+  margin: 0 auto;
+  border-radius: 8px;
+}
+
+#tutorial-target-fallback {
+  margin: 0;
+  color: #0f3853;
+  font-weight: 600;
+}
+
+#start-mission-btn {
+  border: none;
+  border-radius: 10px;
+  padding: 10px 14px;
+  font-size: 15px;
+  font-weight: 700;
+  cursor: pointer;
+  background: var(--blue);
+  color: #ffffff;
 }
 
 #end-modal-buttons {
