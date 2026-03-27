@@ -16,7 +16,7 @@ const game = {
 // Turn this on only when placing future assets on the tileset.
 const developerTools = {
   enabled: false,
-  scoutMode: true,
+  scoutMode: false,
 };
 
 // Level list includes placeholders so future content can be plugged in easily.
@@ -40,6 +40,25 @@ const levels = [
 
 const scoutPoints = [];
 let tutorialShownThisSession = false;
+const revealAnimationDurationMs = 850;
+let revealAnimationFrameId = null;
+
+// Edit these lines to customize the facts shown in the bottom message area.
+const charityWaterFacts = [
+  'charity: water\'s first location was a Northern Uganda refugee camp in 2006.',
+  'charity: water has funded over 100,000 water projects around the world.',
+  'Every charity: water project is tracked so supporters can see impact updates.',
+  'Access to clean water helps children spend more time in school.',
+  'Clean water closer to home can reduce hours spent walking to collect water.',
+  'Reliable water access supports healthier families and stronger local economies.',
+];
+let currentFactIndex = 0;
+
+// Tuning values for reveal mechanics.
+const startingRevealRadius = 75;
+const clickRevealRadius = 100;
+const pumpChainRevealRadius = 150;
+const canChainRevealRadius = 125;
 
 // Interactive map objects. Each icon has a position, a type, and reveal state.
 const gameIcons = [
@@ -47,7 +66,25 @@ const gameIcons = [
     x: 100,
     y: 310,
     type: 'jerrycan',
+    startsRevealed: true,
     isRevealed: true,
+    chainRadius: 0,
+  },
+  {
+    x: 532,
+    y: 337,
+    type: 'pump',
+    startsRevealed: false,
+    isRevealed: false,
+    chainRadius: pumpChainRevealRadius,
+  },
+  {
+    x: 842,
+    y: 381,
+    type: 'jerrycan',
+    startsRevealed: false,
+    isRevealed: false,
+    chainRadius: canChainRevealRadius,
   },
 ];
 
@@ -58,8 +95,9 @@ const revealedCircles = firstJerryCan
       {
         x: firstJerryCan.x,
         y: firstJerryCan.y,
-        diameter: 100,
-        radius: 50,
+        diameter: startingRevealRadius * 2,
+        radius: startingRevealRadius,
+        currentRadius: startingRevealRadius,
       },
     ]
   : [];
@@ -176,7 +214,7 @@ const setupMapLayer = () => {
     const hole = document.createElementNS(svgNs, 'circle');
     hole.setAttribute('cx', String(circle.x));
     hole.setAttribute('cy', String(circle.y));
-    hole.setAttribute('r', String(circle.radius));
+    hole.setAttribute('r', String(circle.currentRadius || 0));
     hole.setAttribute('fill', 'black');
     mask.appendChild(hole);
   });
@@ -207,12 +245,13 @@ const renderRevealRings = () => {
   }
 
   revealedCircles.forEach((circle) => {
+    const currentDiameter = (circle.currentRadius || 0) * 2;
     const ring = document.createElement('div');
     ring.className = 'reveal-ring';
     ring.style.left = `${circle.x}px`;
     ring.style.top = `${circle.y}px`;
-    ring.style.width = `${circle.diameter}px`;
-    ring.style.height = `${circle.diameter}px`;
+    ring.style.width = `${currentDiameter}px`;
+    ring.style.height = `${currentDiameter}px`;
     mapField.appendChild(ring);
   });
 };
@@ -223,7 +262,55 @@ const isInsideRevealedArea = (x, y) => {
     const dx = x - circle.x;
     const dy = y - circle.y;
     const distance = Math.sqrt(dx * dx + dy * dy);
-    return distance <= circle.radius;
+    return distance <= (circle.currentRadius || 0);
+  });
+};
+
+const updateRevealAnimationState = () => {
+  const now = performance.now();
+  let hasActiveAnimations = false;
+
+  // Ease timing so reveal starts with impact and settles smoothly.
+  const easeInOutCubic = (progress) => {
+    if (progress < 0.5) {
+      return 4 * progress * progress * progress;
+    }
+
+    return 1 - Math.pow(-2 * progress + 2, 3) / 2;
+  };
+
+  revealedCircles.forEach((circle) => {
+    if (!circle.revealStartedAt) {
+      circle.currentRadius = circle.radius;
+      return;
+    }
+
+    const elapsed = now - circle.revealStartedAt;
+    const progress = Math.min(elapsed / circle.revealDurationMs, 1);
+    const easedProgress = easeInOutCubic(progress);
+    circle.currentRadius = circle.radius * easedProgress;
+
+    if (progress >= 1) {
+      delete circle.revealStartedAt;
+      delete circle.revealDurationMs;
+      circle.currentRadius = circle.radius;
+      return;
+    }
+
+    hasActiveAnimations = true;
+  });
+
+  return hasActiveAnimations;
+};
+
+const queueNextRevealFrame = () => {
+  if (revealAnimationFrameId !== null) {
+    return;
+  }
+
+  revealAnimationFrameId = requestAnimationFrame(() => {
+    revealAnimationFrameId = null;
+    draw();
   });
 };
 
@@ -254,7 +341,55 @@ const getIconImagePath = (type) => {
     return 'img/water-can.png';
   }
 
+  if (type === 'pump') {
+    return 'img/waterpump.png';
+  }
+
   return '';
+};
+
+const createAnimatedRevealCircle = (x, y, radius) => {
+  return {
+    x: Math.round(x),
+    y: Math.round(y),
+    diameter: radius * 2,
+    radius,
+    currentRadius: 0,
+    revealStartedAt: performance.now(),
+    revealDurationMs: revealAnimationDurationMs,
+  };
+};
+
+const resetGameIcons = () => {
+  gameIcons.forEach((icon) => {
+    icon.isRevealed = icon.startsRevealed;
+  });
+};
+
+// Uncovering a hidden asset triggers its own reveal wave for chain reactions.
+const triggerChainReveals = () => {
+  let chainTriggered = false;
+
+  gameIcons.forEach((icon) => {
+    if (icon.isRevealed) {
+      return;
+    }
+
+    if (!isInsideRevealedArea(icon.x, icon.y)) {
+      return;
+    }
+
+    icon.isRevealed = true;
+
+    if (icon.chainRadius > 0) {
+      revealedCircles.push(
+        createAnimatedRevealCircle(icon.x, icon.y, icon.chainRadius)
+      );
+      chainTriggered = true;
+    }
+  });
+
+  return chainTriggered;
 };
 
 // Draw all currently revealed icons on the map layer (below fog).
@@ -276,6 +411,7 @@ const renderGameIcons = () => {
     if (iconImagePath) {
       const iconElement = document.createElement('img');
       iconElement.className = 'game-icon';
+      iconElement.classList.add(`icon-${iconData.type}`);
       iconElement.src = iconImagePath;
       iconElement.alt = iconData.type;
       iconElement.style.left = `${iconData.x}px`;
@@ -316,11 +452,28 @@ const renderScoutPoints = () => {
 
 // Main draw pass: process fog first, then draw visible icons.
 const draw = () => {
+  const hasActiveAnimations = updateRevealAnimationState();
+  const chainTriggered = triggerChainReveals();
+
   // DOM equivalent of canvas destination-out: each revealed circle cuts a hole in fog.
   setupMapLayer();
   renderRevealRings();
   renderGameIcons();
   renderScoutPoints();
+
+  if (game.gameActive && isTownCenterRevealed()) {
+    endGame(true);
+    return;
+  }
+
+  if (game.gameActive && game.drips <= 0 && !hasActiveAnimations && !chainTriggered) {
+    endGame(false);
+    return;
+  }
+
+  if (hasActiveAnimations || chainTriggered) {
+    queueNextRevealFrame();
+  }
 };
 
 const showEndModal = (title, message) => {
@@ -351,6 +504,15 @@ const hideTutorialModal = () => {
   tutorialModalOverlay.classList.add('hidden');
 };
 
+const showNextCharityFact = () => {
+  if (charityWaterFacts.length === 0) {
+    return;
+  }
+
+  lastActionDiv.innerHTML = `Fun Fact<br>${charityWaterFacts[currentFactIndex]}`;
+  currentFactIndex = (currentFactIndex + 1) % charityWaterFacts.length;
+};
+
 const getCurrentLevelData = () => {
   return levels.find((level) => level.id === game.currentLevel) || levels[0];
 };
@@ -362,15 +524,18 @@ const resetRevealedCirclesToStart = () => {
     revealedCircles.push({
       x: firstJerryCan.x,
       y: firstJerryCan.y,
-      diameter: 100,
-      radius: 50,
+      diameter: startingRevealRadius * 2,
+      radius: startingRevealRadius,
+      currentRadius: startingRevealRadius,
     });
   }
 };
 
 const clearRoundVisuals = () => {
-  const existingMarkers = mapField.querySelectorAll('.drop-marker');
-  existingMarkers.forEach((marker) => marker.remove());
+  if (revealAnimationFrameId !== null) {
+    cancelAnimationFrame(revealAnimationFrameId);
+    revealAnimationFrameId = null;
+  }
 };
 
 const loadLevel = (levelId) => {
@@ -387,6 +552,8 @@ const loadLevel = (levelId) => {
   game.gameActive = true;
 
   scoutPoints.length = 0;
+  currentFactIndex = 0;
+  resetGameIcons();
   resetRevealedCirclesToStart();
   clearRoundVisuals();
   hideEndModal();
@@ -400,7 +567,13 @@ const loadLevel = (levelId) => {
     return;
   }
 
-  lastActionDiv.textContent = `Level ${level.id}: Find the hidden town center before you run out of drips.`;
+  if (developerTools.enabled && game.scoutMode) {
+    lastActionDiv.textContent =
+      'Scout mode is active. Click the map to collect asset coordinates.';
+    return;
+  }
+
+  showNextCharityFact();
 
   // Show tutorial only once when the page is first loaded.
   if (!tutorialShownThisSession) {
@@ -433,17 +606,7 @@ startMissionButton.addEventListener('click', () => {
 // Update the game display
 const updateDisplay = () => {
   const currentLevel = getCurrentLevelData();
-  infoDiv.textContent = `Level ${currentLevel.id}: ${currentLevel.name} | Drips Remaining: ${game.drips} | Score: ${game.score}`;
-};
-
-// Place a visible marker where the player clicked
-const placeDropMarker = (x, y) => {
-  const marker = document.createElement('span');
-  marker.className = 'drop-marker';
-  marker.textContent = '💧';
-  marker.style.left = `${x}px`;
-  marker.style.top = `${y}px`;
-  mapField.appendChild(marker);
+  infoDiv.textContent = `Level ${currentLevel.id}: ${currentLevel.name} | 💧 Drops Remaining: ${game.drips} | Score: ${game.score}`;
 };
 
 // End game function
@@ -502,17 +665,11 @@ const onMapClick = (event) => {
     return;
   }
 
-  // Valid reveal click: spend one drip and instantly reveal a new 75px-radius circle.
+  // Valid reveal click: spend one drip and start a reveal wave.
   game.drips -= 1;
-  revealedCircles.push({
-    x: Math.round(x),
-    y: Math.round(y),
-    diameter: 150,
-    radius: 75,
-  });
+  revealedCircles.push(createAnimatedRevealCircle(x, y, clickRevealRadius));
 
-  placeDropMarker(x, y);
-  lastActionDiv.textContent = `You clicked tile (${tileX}, ${tileY}) at (${Math.round(x)}, ${Math.round(y)}).`;
+  showNextCharityFact();
 
   // Fire a custom event so future game logic can listen for map clicks.
   const mapClickEvent = new CustomEvent('mapTileClicked', {
@@ -527,12 +684,6 @@ const onMapClick = (event) => {
 
   draw();
   updateDisplay();
-
-  if (isTownCenterRevealed()) {
-    endGame(true);
-  } else if (game.drips <= 0) {
-    endGame(false);
-  }
 };
 
 // Update live coordinate readout while moving over the map.

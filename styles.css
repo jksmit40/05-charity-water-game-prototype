@@ -100,15 +100,6 @@ body {
   display: block;
 }
 
-.drop-marker {
-  position: absolute;
-  transform: translate(-50%, -50%);
-  font-size: 28px;
-  pointer-events: none;
-  animation: pop-in 180ms ease-out;
-  z-index: 3;
-}
-
 .game-icon {
   position: absolute;
   transform: translate(-50%, -50%);
@@ -119,6 +110,10 @@ body {
   line-height: 1;
   pointer-events: none;
   z-index: 1;
+}
+
+.game-icon.icon-jerrycan {
+  border-radius: 50%;
 }
 
 .reveal-ring {
@@ -352,14 +347,3 @@ body {
   color: #1b1b1b;
 }
 
-@keyframes pop-in {
-  from {
-    opacity: 0;
-    transform: translate(-50%, -50%) scale(0.4);
-  }
-
-  to {
-    opacity: 1;
-    transform: translate(-50%, -50%) scale(1);
-  }
-}
