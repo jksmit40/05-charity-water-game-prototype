@@ -1,5 +1,14 @@
 // Charity Water Game - click inside the map field to interact with the tileset.
 
+/*
+Beginner Reading Guide (recommended order)
+1. Start at "Core State + Config" to see the main variables and tuning values.
+2. Skim "DOM Elements" to understand which HTML pieces JS controls.
+3. Read "Level Flow" to see how a round is reset and started.
+4. Read "Click + Input Handlers" to understand what happens on each click.
+5. Return to "Render Helpers" + draw() to see how fog and icons update each frame.
+*/
+
 // -------------------------------
 // Section: Core State + Config
 // -------------------------------
@@ -180,7 +189,9 @@ if (!developerTools.enabled) {
 // Section: Render Helpers
 // -------------------------------
 
-// Add a fog overlay above the map so the tileset is hidden until reveal logic is added.
+// Build the fog layer every frame.
+// We use an SVG mask where white keeps fog visible and black cuts holes in the fog.
+// Each reveal circle becomes one black hole in this mask.
 const setupMapLayer = () => {
   const existingFogLayers = mapField.querySelectorAll('.fog-layer');
   existingFogLayers.forEach((layer) => layer.remove());
@@ -247,7 +258,8 @@ const setupMapLayer = () => {
   mapField.appendChild(fogLayer);
 };
 
-// Draw circle outlines so players can clearly see revealed boundaries in the fog.
+// Optional debug/teaching helper.
+// If showRevealRings is turned on, this draws outlines of reveal areas.
 const renderRevealRings = () => {
   const existingRings = mapField.querySelectorAll('.reveal-ring');
   existingRings.forEach((ring) => ring.remove());
@@ -268,7 +280,8 @@ const renderRevealRings = () => {
   });
 };
 
-// Returns true when a point is inside at least one revealed circle.
+// Rule check used by many systems.
+// Returns true if a map point is inside any currently revealed area.
 const isInsideRevealedArea = (x, y) => {
   return revealedCircles.some((circle) => {
     const dx = x - circle.x;
@@ -278,11 +291,15 @@ const isInsideRevealedArea = (x, y) => {
   });
 };
 
+// Progresses animated reveal circles from radius 0 to full radius over time.
+// This runs inside draw() so animation stays in sync with rendering.
 const updateRevealAnimationState = () => {
   const now = performance.now();
   let hasActiveAnimations = false;
 
   // Ease timing so reveal starts with impact and settles smoothly.
+  // Simple easing helper:
+  // start fast enough to feel responsive, then settle smoothly.
   const easeInOutCubic = (progress) => {
     if (progress < 0.5) {
       return 4 * progress * progress * progress;
@@ -315,6 +332,8 @@ const updateRevealAnimationState = () => {
   return hasActiveAnimations;
 };
 
+// Ensures only one requestAnimationFrame is queued at a time.
+// Prevents stacking many animation loops accidentally.
 const queueNextRevealFrame = () => {
   if (revealAnimationFrameId !== null) {
     return;
@@ -330,11 +349,12 @@ const queueNextRevealFrame = () => {
 // Section: Game Rules + Data Helpers
 // -------------------------------
 
+// Win check helper for readability.
 const isTownCenterRevealed = () => {
   return isInsideRevealedArea(townCenterGoal.x, townCenterGoal.y);
 };
 
-// Convert icon types into simple emoji so beginners can see each object quickly.
+// Fallback symbol map if an icon image is missing.
 const getIconSymbol = (type) => {
   if (type === 'jerrycan') {
     return '';
@@ -351,7 +371,7 @@ const getIconSymbol = (type) => {
   return '❓';
 };
 
-// Map icon types to image files when available.
+// Map each icon type to its image asset path.
 const getIconImagePath = (type) => {
   if (type === 'jerrycan') {
     return 'img/water-can.png';
@@ -364,6 +384,8 @@ const getIconImagePath = (type) => {
   return '';
 };
 
+// Factory for a reveal wave object.
+// New circles begin at radius 0 and expand with animation.
 const createAnimatedRevealCircle = (x, y, radius) => {
   return {
     x: Math.round(x),
@@ -376,13 +398,16 @@ const createAnimatedRevealCircle = (x, y, radius) => {
   };
 };
 
+// Resets icons to level-start visibility (used on load/reset).
 const resetGameIcons = () => {
   gameIcons.forEach((icon) => {
     icon.isRevealed = icon.startsRevealed;
   });
 };
 
-// Uncovering a hidden asset triggers its own reveal wave for chain reactions.
+// Chain reaction mechanic:
+// if a hidden asset is now inside revealed fog holes, reveal that asset and
+// spawn its own reveal circle (pump/can bonuses).
 const triggerChainReveals = () => {
   let chainTriggered = false;
 
@@ -408,7 +433,8 @@ const triggerChainReveals = () => {
   return chainTriggered;
 };
 
-// Draw all currently revealed icons on the map layer (below fog).
+// Draw currently visible icons.
+// Icons must be flagged revealed AND be inside visible map space.
 const renderGameIcons = () => {
   const existingIcons = mapField.querySelectorAll('.game-icon');
   existingIcons.forEach((icon) => icon.remove());
@@ -446,7 +472,7 @@ const renderGameIcons = () => {
   });
 };
 
-// Draw temporary scout pins so players can test possible goal spots.
+// Draw scout pins for coordinate gathering sessions.
 const renderScoutPoints = () => {
   const existingPins = mapField.querySelectorAll('.scout-pin');
   existingPins.forEach((pin) => pin.remove());
@@ -466,7 +492,11 @@ const renderScoutPoints = () => {
   });
 };
 
-// Main draw pass: process fog first, then draw visible icons.
+// Main render loop.
+// 1) advance animations
+// 2) resolve chain reactions
+// 3) draw fog + icons
+// 4) evaluate win/lose
 const draw = () => {
   const hasActiveAnimations = updateRevealAnimationState();
   const chainTriggered = triggerChainReveals();
@@ -506,6 +536,7 @@ const hideEndModal = () => {
   endModalOverlay.classList.add('hidden');
 };
 
+// Tutorial shown at level start (once per page session).
 const showTutorialModal = (level) => {
   tutorialModalTitle.textContent = `Goal: Find the Town Center to connect it to clean water.`;
   tutorialModalMessage.textContent = 'Follow these steps to complete your mission:';
@@ -524,6 +555,8 @@ const hideTutorialModal = () => {
   tutorialModalOverlay.classList.add('hidden');
 };
 
+// Rotates through the fact list one entry per call.
+// Modulo (%) wraps back to the first fact after the last one.
 const showNextCharityFact = () => {
   if (charityWaterFacts.length === 0) {
     return;
@@ -537,6 +570,7 @@ const getCurrentLevelData = () => {
   return levels.find((level) => level.id === game.currentLevel) || levels[0];
 };
 
+// Rebuilds the initial revealed circle around the starting jerrycan.
 const resetRevealedCirclesToStart = () => {
   revealedCircles.length = 0;
 
@@ -551,6 +585,7 @@ const resetRevealedCirclesToStart = () => {
   }
 };
 
+// Stops any in-flight animation frame when resetting/transitioning levels.
 const clearRoundVisuals = () => {
   if (revealAnimationFrameId !== null) {
     cancelAnimationFrame(revealAnimationFrameId);
@@ -562,6 +597,8 @@ const clearRoundVisuals = () => {
 // Section: Level Flow
 // -------------------------------
 
+// Level initializer:
+// resets score/drips/visual state, redraws map, then shows opening UI text.
 const loadLevel = (levelId) => {
   const level = levels.find((entry) => entry.id === levelId);
 
@@ -631,13 +668,13 @@ startMissionButton.addEventListener('click', () => {
 // Section: Score + End States
 // -------------------------------
 
-// Update the game display
+// Refreshes the HUD line at the top of the game.
 const updateDisplay = () => {
   const currentLevel = getCurrentLevelData();
   infoDiv.textContent = `Level ${currentLevel.id}: ${currentLevel.name} | 💧 Drops Remaining: ${game.drips} | Score: ${game.score}`;
 };
 
-// End game function
+// Handles win/lose transitions and end modal messaging.
 const endGame = (won) => {
   game.gameActive = false;
 
@@ -669,7 +706,7 @@ const endGame = (won) => {
 // Section: Click + Input Handlers
 // -------------------------------
 
-// Converts browser click position to map-local values and tile indexes.
+// Converts raw browser click coordinates to map-local pixel and tile coordinates.
 const getMapClickData = (event) => {
   const rect = mapField.getBoundingClientRect();
   const x = event.clientX - rect.left;
@@ -683,6 +720,7 @@ const getMapClickData = (event) => {
   };
 };
 
+// Scout mode click behavior: store coordinate and show helper readout.
 const handleScoutClick = (x, y, tileX, tileY) => {
   const point = { x: Math.round(x), y: Math.round(y) };
   scoutPoints.push(point);
@@ -691,12 +729,13 @@ const handleScoutClick = (x, y, tileX, tileY) => {
   lastActionDiv.textContent = `Scout point #${scoutPoints.length}: (${point.x}, ${point.y}) on tile (${tileX}, ${tileY}).`;
 };
 
+// Normal gameplay click behavior: spend one drop and create a reveal wave.
 const handleRevealClick = (x, y) => {
   game.drips -= 1;
   revealedCircles.push(createAnimatedRevealCircle(x, y, clickRevealRadius));
 };
 
-// Handle map click interactions
+// Central click handler for gameplay and scout mode.
 const onMapClick = (event) => {
   if (!game.gameActive) {
     return;
@@ -736,7 +775,7 @@ const onMapClick = (event) => {
   updateDisplay();
 };
 
-// Update live coordinate readout while moving over the map.
+// Updates live cursor coordinates (developer/scout mode only).
 const onMapMove = (event) => {
   if (!developerTools.enabled) {
     return;
@@ -750,6 +789,7 @@ const onMapMove = (event) => {
     : `Cursor (${x}, ${y})`;
 };
 
+// Reset the coordinate helper message when cursor leaves the map.
 const onMapLeave = () => {
   if (!developerTools.enabled) {
     return;
