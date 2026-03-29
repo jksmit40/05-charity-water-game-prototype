@@ -15,6 +15,7 @@ Secondary Colors:
   --yellow: #F7AD19;
   --blue: #00ADEF;
   --tileset-image: url("img/tileset.png");
+  --tileset-fit: cover;
 }
 
 .hidden {
@@ -82,8 +83,9 @@ body {
     linear-gradient(rgba(0, 0, 0, 0.08) 1px, transparent 1px),
     linear-gradient(90deg, rgba(0, 0, 0, 0.08) 1px, transparent 1px),
     var(--tileset-image);
-  background-size: 48px 48px, 48px 48px, cover;
+  background-size: 48px 48px, 48px 48px, var(--tileset-fit);
   background-position: 0 0, 0 0, center;
+  background-repeat: repeat, repeat, no-repeat;
 }
 
 .fog-layer {
@@ -141,6 +143,16 @@ body {
   text-align: center;
   pointer-events: none;
   z-index: 5;
+}
+
+.scout-goal-marker {
+  position: absolute;
+  transform: translate(-50%, -50%);
+  font-size: 28px;
+  line-height: 1;
+  text-shadow: 0 2px 6px rgba(0, 0, 0, 0.45);
+  pointer-events: none;
+  z-index: 6;
 }
 
 #last-action {

@@ -16,7 +16,7 @@ Beginner Reading Guide (recommended order)
 // Game state
 const game = {
   drips: 20, // Starting drips (clicks)
-  score: 0,
+  score: 0, // Cumulative score across completed levels in the current run
   currentLevel: 1,
   maxReveals: 6,
   tileSize: 48,
@@ -32,21 +32,47 @@ const developerTools = {
   scoutMode: false,
 };
 
+// Safety lock: keep false for normal student/player perspective.
+// Set to true only when you intentionally want URL controls like ?scout=1.
+const allowUrlDebugTools = false;
+
+// Optional URL controls for placing assets while designing levels.
+// Example when unlocked: ?scout=1 (enables both dev tools and scout mode)
+const urlParams = new URLSearchParams(window.location.search);
+if (allowUrlDebugTools) {
+  if (urlParams.get('dev') === '1' || urlParams.get('scout') === '1') {
+    developerTools.enabled = true;
+  }
+  if (urlParams.get('scout') === '1') {
+    developerTools.scoutMode = true;
+  }
+}
+
+const requestedStartLevel = Number(urlParams.get('level'));
+const hasRequestedStartLevel = Number.isInteger(requestedStartLevel) && requestedStartLevel >= 1;
+
 // Level list includes placeholders so future content can be plugged in easily.
 const levels = [
   {
     id: 1,
     name: 'Northern Uganda',
+    tilesetImage: 'img/tileset.png',
+    tilesetFit: 'cover',
     isPlaceholder: false,
   },
   {
     id: 2,
-    name: 'Pump Network',
-    isPlaceholder: true,
+    name: 'South Ethiopia',
+    tilesetImage: 'img/desert_map_lvl_2.png',
+    // Stretch image to fill the full map area (no side gaps).
+    tilesetFit: '100% 100%',
+    isPlaceholder: false,
   },
   {
     id: 3,
     name: 'Water Route',
+    tilesetImage: 'img/tileset.png',
+    tilesetFit: 'cover',
     isPlaceholder: true,
   },
 ];
@@ -73,53 +99,132 @@ const clickRevealRadius = 100;
 const pumpChainRevealRadius = 150;
 const canChainRevealRadius = 125;
 
-// Interactive map objects. Each icon has a position, a type, and reveal state.
-const gameIcons = [
-  {
-    x: 100,
-    y: 310,
-    type: 'jerrycan',
-    startsRevealed: true,
-    isRevealed: true,
-    chainRadius: 0,
-  },
-  {
-    x: 532,
-    y: 337,
-    type: 'pump',
-    startsRevealed: false,
-    isRevealed: false,
-    chainRadius: pumpChainRevealRadius,
-  },
-  {
-    x: 842,
-    y: 381,
-    type: 'jerrycan',
-    startsRevealed: false,
-    isRevealed: false,
-    chainRadius: canChainRevealRadius,
-  },
-];
-
-// Keep track of revealed circular areas for fog-of-war logic.
-const firstJerryCan = gameIcons.find((icon) => icon.type === 'jerrycan');
-const revealedCircles = firstJerryCan
-  ? [
+// Per-level editable layouts used by scout mode.
+const levelLayouts = {
+  1: {
+    icons: [
       {
-        x: firstJerryCan.x,
-        y: firstJerryCan.y,
-        diameter: startingRevealRadius * 2,
-        radius: startingRevealRadius,
-        currentRadius: startingRevealRadius,
+        id: 'start-can',
+        x: 100,
+        y: 310,
+        type: 'jerrycan',
+        startsRevealed: true,
+        isRevealed: true,
+        chainRadius: 0,
       },
-    ]
-  : [];
-
-// Hidden town center goal location on the tileset (no visible icon required).
-const townCenterGoal = {
-  x: 977,
-  y: 402,
+      {
+        id: 'pump-1',
+        x: 532,
+        y: 337,
+        type: 'pump',
+        startsRevealed: false,
+        isRevealed: false,
+        chainRadius: pumpChainRevealRadius,
+      },
+      {
+        id: 'bonus-can',
+        x: 842,
+        y: 381,
+        type: 'jerrycan',
+        startsRevealed: false,
+        isRevealed: false,
+        chainRadius: canChainRevealRadius,
+      },
+    ],
+    townCenterGoal: {
+      x: 977,
+      y: 402,
+    },
+  },
+  2: {
+    // Starter positions for level 2. Scout mode can replace these quickly.
+    icons: [
+      {
+        id: 'start-can',
+        x: 172,
+        y: 466,
+        type: 'jerrycan',
+        startsRevealed: true,
+        isRevealed: true,
+        chainRadius: 0,
+      },
+      {
+        id: 'pump-1',
+        x: 557,
+        y: 408,
+        type: 'pump',
+        startsRevealed: false,
+        isRevealed: false,
+        chainRadius: pumpChainRevealRadius,
+      },
+      {
+        id: 'bonus-can',
+        x: 318,
+        y: 271,
+        type: 'jerrycan',
+        startsRevealed: false,
+        isRevealed: false,
+        chainRadius: canChainRevealRadius,
+      },
+      {
+        // Extra chain can near the pump to create a nicer uncover sequence.
+        id: 'bonus-can-2',
+        x: 660,
+        y: 352,
+        type: 'jerrycan',
+        startsRevealed: false,
+        isRevealed: false,
+        chainRadius: canChainRevealRadius,
+      },
+    ],
+    townCenterGoal: {
+      x: 738,
+      y: 148,
+    },
+  },
+  3: {
+    icons: [
+      {
+        id: 'start-can',
+        x: 100,
+        y: 310,
+        type: 'jerrycan',
+        startsRevealed: true,
+        isRevealed: true,
+        chainRadius: 0,
+      },
+      {
+        id: 'pump-1',
+        x: 532,
+        y: 337,
+        type: 'pump',
+        startsRevealed: false,
+        isRevealed: false,
+        chainRadius: pumpChainRevealRadius,
+      },
+      {
+        id: 'bonus-can',
+        x: 842,
+        y: 381,
+        type: 'jerrycan',
+        startsRevealed: false,
+        isRevealed: false,
+        chainRadius: canChainRevealRadius,
+      },
+    ],
+    townCenterGoal: {
+      x: 977,
+      y: 402,
+    },
+  },
 };
+
+let gameIcons = [];
+let townCenterGoal = { x: 0, y: 0 };
+const revealedCircles = [];
+
+// Scout mode placement state.
+let scoutPlacementTarget = 'none';
 
 // -------------------------------
 // Section: DOM Elements
@@ -398,6 +503,115 @@ const createAnimatedRevealCircle = (x, y, radius) => {
   };
 };
 
+const cloneIconData = (icon) => {
+  return {
+    id: icon.id,
+    x: icon.x,
+    y: icon.y,
+    type: icon.type,
+    startsRevealed: icon.startsRevealed,
+    isRevealed: icon.isRevealed,
+    chainRadius: icon.chainRadius,
+  };
+};
+
+const getLevelLayout = (levelId) => {
+  return levelLayouts[levelId] || levelLayouts[1];
+};
+
+const applyLevelLayout = (levelId) => {
+  const layout = getLevelLayout(levelId);
+  gameIcons = layout.icons.map((icon) => cloneIconData(icon));
+  townCenterGoal = {
+    x: layout.townCenterGoal.x,
+    y: layout.townCenterGoal.y,
+  };
+};
+
+const saveCurrentLayoutToLevel = (levelId) => {
+  levelLayouts[levelId] = {
+    icons: gameIcons.map((icon) => cloneIconData(icon)),
+    townCenterGoal: {
+      x: townCenterGoal.x,
+      y: townCenterGoal.y,
+    },
+  };
+};
+
+const getScoutTargetLabel = (target) => {
+  if (target === 'start-can') {
+    return 'Start Jerrycan';
+  }
+
+  if (target === 'pump-1') {
+    return 'Pump';
+  }
+
+  if (target === 'bonus-can') {
+    return 'Bonus Jerrycan';
+  }
+
+  if (target === 'town-center') {
+    return 'Town Center Goal';
+  }
+
+  return 'None';
+};
+
+const placeScoutTargetAt = (x, y) => {
+  const roundedX = Math.round(x);
+  const roundedY = Math.round(y);
+
+  if (scoutPlacementTarget === 'town-center') {
+    townCenterGoal.x = roundedX;
+    townCenterGoal.y = roundedY;
+    saveCurrentLayoutToLevel(game.currentLevel);
+    return true;
+  }
+
+  if (scoutPlacementTarget === 'none') {
+    return false;
+  }
+
+  const icon = gameIcons.find((entry) => entry.id === scoutPlacementTarget);
+  if (!icon) {
+    return false;
+  }
+
+  icon.x = roundedX;
+  icon.y = roundedY;
+
+  // Keep the opening reveal centered on the start jerrycan.
+  if (scoutPlacementTarget === 'start-can') {
+    resetRevealedCirclesToStart();
+  }
+
+  saveCurrentLayoutToLevel(game.currentLevel);
+  return true;
+};
+
+const exportCurrentLevelLayout = () => {
+  const exportData = {
+    level: game.currentLevel,
+    icons: gameIcons.map((icon) => ({
+      id: icon.id,
+      x: icon.x,
+      y: icon.y,
+      type: icon.type,
+      startsRevealed: icon.startsRevealed,
+      chainRadius: icon.chainRadius,
+    })),
+    townCenterGoal: {
+      x: townCenterGoal.x,
+      y: townCenterGoal.y,
+    },
+  };
+
+  const pretty = JSON.stringify(exportData, null, 2);
+  console.log('Scout Export -> copy these coordinates into levelLayouts if needed:\n', pretty);
+  return pretty;
+};
+
 // Resets icons to level-start visibility (used on load/reset).
 const resetGameIcons = () => {
   gameIcons.forEach((icon) => {
@@ -444,7 +658,7 @@ const renderGameIcons = () => {
       return;
     }
 
-    if (!isInsideRevealedArea(iconData.x, iconData.y)) {
+    if (game.showFog && !isInsideRevealedArea(iconData.x, iconData.y)) {
       return;
     }
 
@@ -492,6 +706,26 @@ const renderScoutPoints = () => {
   });
 };
 
+// Shows the current win location while scouting.
+const renderScoutGoalMarker = () => {
+  const existingMarker = mapField.querySelector('.scout-goal-marker');
+  if (existingMarker) {
+    existingMarker.remove();
+  }
+
+  if (!developerTools.enabled || !game.scoutMode) {
+    return;
+  }
+
+  const marker = document.createElement('span');
+  marker.className = 'scout-goal-marker';
+  marker.style.left = `${townCenterGoal.x}px`;
+  marker.style.top = `${townCenterGoal.y}px`;
+  marker.textContent = '🎯';
+  marker.setAttribute('aria-label', 'Town center goal marker');
+  mapField.appendChild(marker);
+};
+
 // Main render loop.
 // 1) advance animations
 // 2) resolve chain reactions
@@ -506,6 +740,7 @@ const draw = () => {
   renderRevealRings();
   renderGameIcons();
   renderScoutPoints();
+  renderScoutGoalMarker();
 
   if (game.gameActive && isTownCenterRevealed()) {
     endGame(true);
@@ -529,6 +764,8 @@ const draw = () => {
 const showEndModal = (title, message) => {
   endModalTitle.textContent = title;
   endModalMessage.textContent = message;
+  nextLevelButton.textContent =
+    game.currentLevel >= levels.length ? 'Play Level 1 Again' : 'Next Level';
   endModalOverlay.classList.remove('hidden');
 };
 
@@ -570,14 +807,29 @@ const getCurrentLevelData = () => {
   return levels.find((level) => level.id === game.currentLevel) || levels[0];
 };
 
+// Updates the map background image for each level.
+// If no image is defined, we keep the existing CSS default.
+const applyLevelTileset = (level) => {
+  if (!level || !level.tilesetImage) {
+    mapField.style.removeProperty('--tileset-image');
+    mapField.style.removeProperty('--tileset-fit');
+    return;
+  }
+
+  mapField.style.setProperty('--tileset-image', `url("${level.tilesetImage}")`);
+  mapField.style.setProperty('--tileset-fit', level.tilesetFit || 'cover');
+};
+
 // Rebuilds the initial revealed circle around the starting jerrycan.
 const resetRevealedCirclesToStart = () => {
   revealedCircles.length = 0;
 
-  if (firstJerryCan) {
+  const startJerryCan = gameIcons.find((icon) => icon.id === 'start-can');
+
+  if (startJerryCan) {
     revealedCircles.push({
-      x: firstJerryCan.x,
-      y: firstJerryCan.y,
+      x: startJerryCan.x,
+      y: startJerryCan.y,
       diameter: startingRevealRadius * 2,
       radius: startingRevealRadius,
       currentRadius: startingRevealRadius,
@@ -608,9 +860,10 @@ const loadLevel = (levelId) => {
 
   game.currentLevel = level.id;
   game.drips = 20;
-  game.score = 0;
-  game.showFog = true;
+  game.showFog = !(developerTools.enabled && game.scoutMode);
   game.gameActive = true;
+  applyLevelLayout(level.id);
+  applyLevelTileset(level);
 
   scoutPoints.length = 0;
   currentFactIndex = 0;
@@ -630,7 +883,7 @@ const loadLevel = (levelId) => {
 
   if (developerTools.enabled && game.scoutMode) {
     lastActionDiv.textContent =
-      'Scout mode is active. Click the map to collect asset coordinates.';
+      'Scout mode is active. Keys: 1 Start Can, 2 Pump, 3 Bonus Can, 4 Town Goal, 0 Pointer Only, E Export Layout.';
     return;
   }
 
@@ -652,6 +905,8 @@ nextLevelButton.addEventListener('click', () => {
   const nextLevelId = game.currentLevel + 1;
 
   if (nextLevelId > levels.length) {
+    // Starting a fresh run after the final level resets cumulative score.
+    game.score = 0;
     lastActionDiv.textContent = 'No more levels yet. Returning to Level 1.';
     loadLevel(1);
     return;
@@ -680,10 +935,18 @@ const endGame = (won) => {
 
   if (won) {
     // Score rules: 100 for finding the town center + 5 for each drip left.
-    game.score = 100 + game.drips * 5;
+    // Add this level's points into the run's cumulative score.
+    const levelScore = 100 + game.drips * 5;
+    game.score += levelScore;
 
     // Reveal the full map when the town center is found.
     game.showFog = false;
+
+    // Show all assets when the level is complete.
+    gameIcons.forEach((icon) => {
+      icon.isRevealed = true;
+    });
+
     draw();
   }
 
@@ -692,7 +955,7 @@ const endGame = (won) => {
   if (won) {
     showEndModal(
       'Mission Complete!',
-      `You found the town center. Final score: ${game.score}`
+      `You found the town center. Level score added. Total score: ${game.score}`
     );
     lastActionDiv.textContent = 'Great work! Choose what to do next.';
     return;
@@ -724,8 +987,17 @@ const getMapClickData = (event) => {
 const handleScoutClick = (x, y, tileX, tileY) => {
   const point = { x: Math.round(x), y: Math.round(y) };
   scoutPoints.push(point);
+
+  const didPlaceTarget = placeScoutTargetAt(point.x, point.y);
+  const targetLabel = getScoutTargetLabel(scoutPlacementTarget);
   draw();
-  coordReadoutDiv.textContent = `Scout Mode: cursor (${point.x}, ${point.y}) | Last click #${scoutPoints.length} at (${point.x}, ${point.y})`;
+  coordReadoutDiv.textContent = `Scout Mode: target ${targetLabel} | cursor (${point.x}, ${point.y}) | Last click #${scoutPoints.length}`;
+
+  if (didPlaceTarget) {
+    lastActionDiv.textContent = `Placed ${targetLabel} at (${point.x}, ${point.y}) on tile (${tileX}, ${tileY}).`;
+    return;
+  }
+
   lastActionDiv.textContent = `Scout point #${scoutPoints.length}: (${point.x}, ${point.y}) on tile (${tileX}, ${tileY}).`;
 };
 
@@ -752,6 +1024,12 @@ const onMapClick = (event) => {
   // Ignore clicks outside currently revealed circles.
   if (!isInsideRevealedArea(x, y)) {
     lastActionDiv.textContent = 'That area is still hidden by fog. Click inside a revealed circle.';
+    return;
+  }
+
+  // Prevent spending extra drips while the round is finishing.
+  if (game.drips <= 0) {
+    lastActionDiv.textContent = 'No drips left. Wait for the round result.';
     return;
   }
 
@@ -784,8 +1062,9 @@ const onMapMove = (event) => {
   const rect = mapField.getBoundingClientRect();
   const x = Math.round(event.clientX - rect.left);
   const y = Math.round(event.clientY - rect.top);
+  const targetLabel = getScoutTargetLabel(scoutPlacementTarget);
   coordReadoutDiv.textContent = game.scoutMode
-    ? `Scout Mode: cursor (${x}, ${y})`
+    ? `Scout Mode: target ${targetLabel} | cursor (${x}, ${y})`
     : `Cursor (${x}, ${y})`;
 };
 
@@ -795,15 +1074,61 @@ const onMapLeave = () => {
     return;
   }
 
+  const targetLabel = getScoutTargetLabel(scoutPlacementTarget);
   coordReadoutDiv.textContent = game.scoutMode
-    ? 'Scout Mode: move over the map to see coordinates.'
+    ? `Scout Mode: target ${targetLabel} | move over the map to see coordinates.`
     : 'Move over the map to see coordinates.';
+};
+
+// Scout keyboard shortcuts:
+// 1 start-can, 2 pump, 3 bonus-can, 4 town-center, 0 coordinate-only, E export.
+const onDocumentKeyDown = (event) => {
+  if (!developerTools.enabled || !game.scoutMode) {
+    return;
+  }
+
+  const key = event.key.toLowerCase();
+
+  if (key === '1') {
+    scoutPlacementTarget = 'start-can';
+  } else if (key === '2') {
+    scoutPlacementTarget = 'pump-1';
+  } else if (key === '3') {
+    scoutPlacementTarget = 'bonus-can';
+  } else if (key === '4') {
+    scoutPlacementTarget = 'town-center';
+  } else if (key === '0') {
+    scoutPlacementTarget = 'none';
+  } else if (key === 'e') {
+    const exportedLayout = exportCurrentLevelLayout();
+    lastActionDiv.textContent = 'Layout exported to console. Copy the JSON from DevTools console output.';
+    coordReadoutDiv.textContent = `Scout Mode: target ${getScoutTargetLabel(scoutPlacementTarget)} | export ready`;
+    console.log(exportedLayout);
+    return;
+  } else if (key === ']') {
+    const nextLevelId = game.currentLevel + 1 > levels.length ? 1 : game.currentLevel + 1;
+    loadLevel(nextLevelId);
+    lastActionDiv.textContent = `Scout mode switched to Level ${nextLevelId}.`;
+    return;
+  } else if (key === '[') {
+    const previousLevelId = game.currentLevel - 1 < 1 ? levels.length : game.currentLevel - 1;
+    loadLevel(previousLevelId);
+    lastActionDiv.textContent = `Scout mode switched to Level ${previousLevelId}.`;
+    return;
+  } else {
+    return;
+  }
+
+  const selectedTargetLabel = getScoutTargetLabel(scoutPlacementTarget);
+  lastActionDiv.textContent = `Scout target set to ${selectedTargetLabel}. Click the map to place it.`;
+  coordReadoutDiv.textContent = `Scout Mode: target ${selectedTargetLabel} | move over the map to see coordinates.`;
 };
 
 // Main click listener for the map field.
 mapField.addEventListener('click', onMapClick);
 mapField.addEventListener('mousemove', onMapMove);
 mapField.addEventListener('mouseleave', onMapLeave);
+document.addEventListener('keydown', onDocumentKeyDown);
 
 // Example listener showing how you can hook game logic into map clicks later.
 mapField.addEventListener('mapTileClicked', (event) => {
@@ -813,4 +1138,7 @@ mapField.addEventListener('mapTileClicked', (event) => {
 
 // Initialize display
 game.scoutMode = developerTools.enabled && developerTools.scoutMode;
-loadLevel(1);
+const initialLevelId = hasRequestedStartLevel
+  ? Math.min(requestedStartLevel, levels.length)
+  : 1;
+loadLevel(initialLevelId);
