@@ -226,6 +226,11 @@ const revealedCircles = [];
 // Scout mode placement state.
 let scoutPlacementTarget = 'none';
 
+// Small helper so repeated scout-mode checks read like plain English.
+const isScoutModeActive = () => {
+  return developerTools.enabled && game.scoutMode;
+};
+
 // -------------------------------
 // Section: DOM Elements
 // -------------------------------
@@ -551,6 +556,10 @@ const getScoutTargetLabel = (target) => {
     return 'Bonus Jerrycan';
   }
 
+  if (target === 'bonus-can-2') {
+    return 'Bonus Jerrycan 2';
+  }
+
   if (target === 'town-center') {
     return 'Town Center Goal';
   }
@@ -691,7 +700,7 @@ const renderScoutPoints = () => {
   const existingPins = mapField.querySelectorAll('.scout-pin');
   existingPins.forEach((pin) => pin.remove());
 
-  if (!developerTools.enabled || !game.scoutMode) {
+  if (!isScoutModeActive()) {
     return;
   }
 
@@ -713,7 +722,7 @@ const renderScoutGoalMarker = () => {
     existingMarker.remove();
   }
 
-  if (!developerTools.enabled || !game.scoutMode) {
+  if (!isScoutModeActive()) {
     return;
   }
 
@@ -850,7 +859,8 @@ const clearRoundVisuals = () => {
 // -------------------------------
 
 // Level initializer:
-// resets score/drips/visual state, redraws map, then shows opening UI text.
+// resets drips/visual state, redraws map, then shows opening UI text.
+// Score is cumulative and is only reset when starting a brand-new run.
 const loadLevel = (levelId) => {
   const level = levels.find((entry) => entry.id === levelId);
 
@@ -860,7 +870,7 @@ const loadLevel = (levelId) => {
 
   game.currentLevel = level.id;
   game.drips = 20;
-  game.showFog = !(developerTools.enabled && game.scoutMode);
+  game.showFog = !isScoutModeActive();
   game.gameActive = true;
   applyLevelLayout(level.id);
   applyLevelTileset(level);
@@ -881,9 +891,9 @@ const loadLevel = (levelId) => {
     return;
   }
 
-  if (developerTools.enabled && game.scoutMode) {
+  if (isScoutModeActive()) {
     lastActionDiv.textContent =
-      'Scout mode is active. Keys: 1 Start Can, 2 Pump, 3 Bonus Can, 4 Town Goal, 0 Pointer Only, E Export Layout.';
+      'Scout mode is active. Keys: 1 Start Can, 2 Pump, 3 Bonus Can, 4 Town Goal, 5 Bonus Can 2, 0 Pointer Only, E Export Layout.';
     return;
   }
 
@@ -895,7 +905,7 @@ const loadLevel = (levelId) => {
   }
 };
 
-// Reset button refreshes the page so all game state starts fresh.
+// Reset button reloads just the current level state.
 resetLevelButton.addEventListener('click', () => {
   loadLevel(game.currentLevel);
 });
@@ -1016,7 +1026,7 @@ const onMapClick = (event) => {
   const { x, y, tileX, tileY } = getMapClickData(event);
 
   // Scout mode ignores game rules so you can pick target coordinates anywhere.
-  if (developerTools.enabled && game.scoutMode) {
+  if (isScoutModeActive()) {
     handleScoutClick(x, y, tileX, tileY);
     return;
   }
@@ -1083,7 +1093,7 @@ const onMapLeave = () => {
 // Scout keyboard shortcuts:
 // 1 start-can, 2 pump, 3 bonus-can, 4 town-center, 0 coordinate-only, E export.
 const onDocumentKeyDown = (event) => {
-  if (!developerTools.enabled || !game.scoutMode) {
+  if (!isScoutModeActive()) {
     return;
   }
 
@@ -1097,13 +1107,14 @@ const onDocumentKeyDown = (event) => {
     scoutPlacementTarget = 'bonus-can';
   } else if (key === '4') {
     scoutPlacementTarget = 'town-center';
+  } else if (key === '5') {
+    scoutPlacementTarget = 'bonus-can-2';
   } else if (key === '0') {
     scoutPlacementTarget = 'none';
   } else if (key === 'e') {
-    const exportedLayout = exportCurrentLevelLayout();
+    exportCurrentLevelLayout();
     lastActionDiv.textContent = 'Layout exported to console. Copy the JSON from DevTools console output.';
     coordReadoutDiv.textContent = `Scout Mode: target ${getScoutTargetLabel(scoutPlacementTarget)} | export ready`;
-    console.log(exportedLayout);
     return;
   } else if (key === ']') {
     const nextLevelId = game.currentLevel + 1 > levels.length ? 1 : game.currentLevel + 1;
