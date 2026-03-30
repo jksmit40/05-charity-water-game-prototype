@@ -68,19 +68,18 @@ const levels = [
     tilesetFit: '100% 100%',
     isPlaceholder: false,
   },
-  {
-    id: 3,
-    name: 'Water Route',
-    tilesetImage: 'img/tileset.png',
-    tilesetFit: 'cover',
-    isPlaceholder: true,
-  },
 ];
 
 const scoutPoints = [];
 let tutorialShownThisSession = false;
 const revealAnimationDurationMs = 850;
 let revealAnimationFrameId = null;
+
+// Add your level-start audio file at this path.
+// Example: music/your-level-start-track.mp3
+const levelStartMusicPath = 'music/John_Bartmann_-_07_-_African_Moon(chosic.com).mp3';
+const levelStartAudio = new Audio(levelStartMusicPath);
+levelStartAudio.preload = 'auto';
 
 // Edit these lines to customize the facts shown in the bottom message area.
 const charityWaterFacts = [
@@ -182,41 +181,6 @@ const levelLayouts = {
       y: 148,
     },
   },
-  3: {
-    icons: [
-      {
-        id: 'start-can',
-        x: 100,
-        y: 310,
-        type: 'jerrycan',
-        startsRevealed: true,
-        isRevealed: true,
-        chainRadius: 0,
-      },
-      {
-        id: 'pump-1',
-        x: 532,
-        y: 337,
-        type: 'pump',
-        startsRevealed: false,
-        isRevealed: false,
-        chainRadius: pumpChainRevealRadius,
-      },
-      {
-        id: 'bonus-can',
-        x: 842,
-        y: 381,
-        type: 'jerrycan',
-        startsRevealed: false,
-        isRevealed: false,
-        chainRadius: canChainRevealRadius,
-      },
-    ],
-    townCenterGoal: {
-      x: 977,
-      y: 402,
-    },
-  },
 };
 
 let gameIcons = [];
@@ -241,6 +205,7 @@ gameContainer.style.fontFamily = 'Arial, sans-serif';
 
 // Grab UI elements created in HTML.
 const infoDiv = document.getElementById('game-info');
+const funFactDiv = document.getElementById('fun-fact');
 const coordReadoutDiv = document.getElementById('coord-readout');
 const mapField = document.getElementById('map-field');
 const lastActionDiv = document.getElementById('last-action');
@@ -249,6 +214,8 @@ const endModalTitle = document.getElementById('end-modal-title');
 const endModalMessage = document.getElementById('end-modal-message');
 const resetLevelButton = document.getElementById('reset-level-btn');
 const nextLevelButton = document.getElementById('next-level-btn');
+const carryoverLevelButton = document.getElementById('carryover-level-btn');
+const endModalLinks = document.getElementById('end-modal-links');
 const tutorialModalOverlay = document.getElementById('tutorial-modal-overlay');
 const tutorialModalTitle = document.getElementById('tutorial-modal-title');
 const tutorialModalMessage = document.getElementById('tutorial-modal-message');
@@ -260,6 +227,7 @@ const startMissionButton = document.getElementById('start-mission-btn');
 if (
   !gameContainer ||
   !infoDiv ||
+  !funFactDiv ||
   !coordReadoutDiv ||
   !mapField ||
   !lastActionDiv ||
@@ -268,6 +236,8 @@ if (
   !endModalMessage ||
   !resetLevelButton ||
   !nextLevelButton ||
+  !carryoverLevelButton ||
+  !endModalLinks ||
   !tutorialModalOverlay ||
   !tutorialModalTitle ||
   !tutorialModalMessage ||
@@ -780,6 +750,17 @@ const showEndModal = (title, message) => {
 
 const hideEndModal = () => {
   endModalOverlay.classList.add('hidden');
+  endModalLinks.classList.add('hidden');
+  carryoverLevelButton.classList.add('hidden');
+  nextLevelButton.textContent =
+    game.currentLevel >= levels.length ? 'Play Level 1 Again' : 'Next Level (Reset Drops)';
+};
+
+const playLevelStartMusic = () => {
+  levelStartAudio.currentTime = 0;
+  levelStartAudio.play().catch(() => {
+    // Ignore autoplay/missing-file errors to keep gameplay smooth.
+  });
 };
 
 // Tutorial shown at level start (once per page session).
@@ -808,7 +789,7 @@ const showNextCharityFact = () => {
     return;
   }
 
-  lastActionDiv.innerHTML = `Fun Fact<br>${charityWaterFacts[currentFactIndex]}`;
+  funFactDiv.textContent = `Fun Fact: ${charityWaterFacts[currentFactIndex]}`;
   currentFactIndex = (currentFactIndex + 1) % charityWaterFacts.length;
 };
 
@@ -861,7 +842,7 @@ const clearRoundVisuals = () => {
 // Level initializer:
 // resets drips/visual state, redraws map, then shows opening UI text.
 // Score is cumulative and is only reset when starting a brand-new run.
-const loadLevel = (levelId) => {
+const loadLevel = (levelId, options = {}) => {
   const level = levels.find((entry) => entry.id === levelId);
 
   if (!level) {
@@ -869,7 +850,7 @@ const loadLevel = (levelId) => {
   }
 
   game.currentLevel = level.id;
-  game.drips = 20;
+  game.drips = Number.isInteger(options.startDrips) ? options.startDrips : 20;
   game.showFog = !isScoutModeActive();
   game.gameActive = true;
   applyLevelLayout(level.id);
@@ -887,11 +868,13 @@ const loadLevel = (levelId) => {
   onMapLeave();
 
   if (level.isPlaceholder) {
+    funFactDiv.textContent = 'Fun Fact: More facts for this level will be added soon.';
     lastActionDiv.textContent = `Level ${level.id} (${level.name}) is a placeholder. Core logic is active while assets are in progress.`;
     return;
   }
 
   if (isScoutModeActive()) {
+    funFactDiv.textContent = 'Fun Fact: Scout mode helps you place game items while designing levels.';
     lastActionDiv.textContent =
       'Scout mode is active. Keys: 1 Start Can, 2 Pump, 3 Bonus Can, 4 Town Goal, 5 Bonus Can 2, 0 Pointer Only, E Export Layout.';
     return;
@@ -912,6 +895,7 @@ resetLevelButton.addEventListener('click', () => {
 
 // Move to the next level slot (placeholder levels are supported).
 nextLevelButton.addEventListener('click', () => {
+  const shouldResetDrops = true;
   const nextLevelId = game.currentLevel + 1;
 
   if (nextLevelId > levels.length) {
@@ -919,14 +903,33 @@ nextLevelButton.addEventListener('click', () => {
     game.score = 0;
     lastActionDiv.textContent = 'No more levels yet. Returning to Level 1.';
     loadLevel(1);
+    playLevelStartMusic();
     return;
   }
 
-  loadLevel(nextLevelId);
+  const startingDrips = shouldResetDrops ? 20 : game.drips;
+  loadLevel(nextLevelId, { startDrips: startingDrips });
+  playLevelStartMusic();
+});
+
+carryoverLevelButton.addEventListener('click', () => {
+  const nextLevelId = game.currentLevel + 1;
+
+  if (nextLevelId > levels.length) {
+    game.score = 0;
+    lastActionDiv.textContent = 'No more levels yet. Returning to Level 1.';
+    loadLevel(1);
+    playLevelStartMusic();
+    return;
+  }
+
+  loadLevel(nextLevelId, { startDrips: game.drips });
+  playLevelStartMusic();
 });
 
 startMissionButton.addEventListener('click', () => {
   hideTutorialModal();
+  playLevelStartMusic();
 });
 
 // -------------------------------
@@ -963,6 +966,14 @@ const endGame = (won) => {
   updateDisplay();
 
   if (won) {
+    const canChooseCarryover = game.currentLevel === 1;
+    carryoverLevelButton.classList.toggle('hidden', !canChooseCarryover);
+    nextLevelButton.textContent = canChooseCarryover
+      ? 'Next Level (Reset to 20 Drops)'
+      : game.currentLevel >= levels.length
+      ? 'Play Level 1 Again'
+      : 'Next Level (Reset Drops)';
+    endModalLinks.classList.remove('hidden');
     showEndModal(
       'Mission Complete!',
       `You found the town center. Level score added. Total score: ${game.score}`
@@ -971,6 +982,7 @@ const endGame = (won) => {
     return;
   }
 
+  endModalLinks.classList.add('hidden');
   showEndModal('Out of Drips', 'You ran out of drips. Try the level again.');
   lastActionDiv.textContent = 'Choose an option below to continue.';
 };

@@ -59,6 +59,18 @@ body {
   border-radius: 10px;
 }
 
+#fun-fact {
+  margin-bottom: 10px;
+  font-size: 15px;
+  font-weight: 700;
+  color: #0f3853;
+  background: #fff7e7;
+  padding: 10px 12px;
+  border-radius: 10px;
+  border: 2px solid rgba(247, 173, 25, 0.55);
+  min-height: 22px;
+}
+
 #coord-readout {
   margin-bottom: 10px;
   font-size: 14px;
@@ -357,5 +369,36 @@ body {
 #next-level-btn {
   background: var(--yellow);
   color: #1b1b1b;
+}
+
+#carryover-level-btn {
+  background: #159a48;
+  color: #ffffff;
+}
+
+#end-modal-links {
+  margin-top: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+#end-modal-links a {
+  display: inline-block;
+  text-decoration: none;
+  border-radius: 10px;
+  padding: 10px 14px;
+  font-size: 15px;
+  font-weight: 700;
+}
+
+#charity-site-link {
+  background: #eaf8ff;
+  color: #004e79;
+}
+
+#charity-donate-link {
+  background: #ecfff1;
+  color: #0e6a2f;
 }
 
