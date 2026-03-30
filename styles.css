@@ -402,3 +402,42 @@ body {
   color: #0e6a2f;
 }
 
+#game-footer {
+  margin-top: 24px;
+  padding: 16px 20px;
+  text-align: center;
+  background: linear-gradient(180deg, rgba(0, 173, 239, 0.08) 0%, rgba(247, 173, 25, 0.05) 100%);
+  border-top: 2px solid rgba(0, 173, 239, 0.3);
+  border-radius: 8px;
+  font-size: 14px;
+  color: #052034;
+}
+
+#game-footer p {
+  margin: 0 0 12px;
+  font-weight: 600;
+  color: #0f3853;
+}
+
+#game-footer a {
+  display: inline-block;
+  margin: 0 8px;
+  padding: 8px 12px;
+  text-decoration: none;
+  color: #00adef;
+  font-weight: 700;
+  border-radius: 6px;
+  transition: all 0.2s ease;
+  background: rgba(0, 173, 239, 0.1);
+}
+
+#game-footer a:hover {
+  background: rgba(0, 173, 239, 0.25);
+  transform: translateY(-2px);
+}
+
+.footer-divider {
+  color: rgba(0, 173, 239, 0.4);
+  margin: 0 4px;
+}
+

@@ -94,6 +94,14 @@ levelStartAudio.preload = 'auto'; // Load the audio file ahead of time for smoot
 levelStartAudio.loop = true; // Play continuously
 levelStartAudio.volume = 0.25; // Set volume to 25%
 
+// NEW FEATURE: Water droplet click sound effect.
+// Plays each time a player clicks to place a drop in a revealed area.
+// This provides immediate audio feedback for player actions.
+const dropletSoundPath = 'music/floraphonic-water-droplet-4-165639.mp3';
+const dropletSound = new Audio(dropletSoundPath);
+dropletSound.preload = 'auto'; // Load the sound ahead of time
+dropletSound.volume = 0.5; // Set volume to 50%
+
 // Edit these lines to customize the facts shown in the top message area.
 const charityWaterFacts = [
   'charity: water\'s first location was a Northern Uganda refugee camp in 2006.',
@@ -1090,6 +1098,12 @@ const handleScoutClick = (x, y, tileX, tileY) => {
 const handleRevealClick = (x, y) => {
   game.drips -= 1;
   revealedCircles.push(createAnimatedRevealCircle(x, y, clickRevealRadius));
+  // NEW FEATURE: Play water droplet sound on click.
+  // Rewind to start and play the sound effect for immediate audio feedback.
+  dropletSound.currentTime = 0;
+  dropletSound.play().catch(() => {
+    // Silently ignore if sound fails to play (e.g., autoplay restrictions).
+  });
 };
 
 // Central click handler for gameplay and scout mode.
