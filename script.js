@@ -24,7 +24,11 @@ const game = {
   showRevealRings: false,
   scoutMode: false,
   gameActive: true,
+  usedCarryoverDrops: false, // Tracks if player chose harder carryover mode
 };
+
+// Session tracking for high scores.
+let sessionHighScore = 0;
 
 // Turn this on only when placing future assets on the tileset.
 const developerTools = {
@@ -774,10 +778,10 @@ const showTutorialModal = (level) => {
   tutorialModalMessage.textContent = 'Follow these steps to complete your mission:';
   tutorialModalSteps.innerHTML = `
     <li><span class="tutorial-step-icon">1</span><span class="tutorial-step-text">Study the image so you know the town center target.</span></li>
-    <li><span class="tutorial-step-icon">2</span><span class="tutorial-step-text">Click inside revealed circles. Each click uses 1 drip.</span></li>
+    <li><span class="tutorial-step-icon">2</span><span class="tutorial-step-text">Click inside revealed circles. Each click uses 1 drops.</span></li>
     <li><span class="tutorial-step-icon">3</span><span class="tutorial-step-text">Find pumps and jerrycans to reveal extra map space.</span></li>
     <li><span class="tutorial-step-icon">4</span><span class="tutorial-step-text">Keep expanding fog holes until the town center appears.</span></li>
-    <li><span class="tutorial-step-icon">5</span><span class="tutorial-step-text">Finish with more drips left to earn a higher score.</span></li>
+    <li><span class="tutorial-step-icon">5</span><span class="tutorial-step-text">Finish with more drops left to earn a higher score.</span></li>
   `;
   tutorialModalOverlay.classList.remove('hidden');
   tutorialShownThisSession = true;
@@ -895,6 +899,7 @@ const loadLevel = (levelId, options = {}) => {
 
 // Reset button reloads just the current level state.
 resetLevelButton.addEventListener('click', () => {
+  game.usedCarryoverDrops = false;
   loadLevel(game.currentLevel);
 });
 
@@ -912,6 +917,7 @@ nextLevelButton.addEventListener('click', () => {
     return;
   }
 
+  game.usedCarryoverDrops = false;
   const startingDrips = shouldResetDrops ? 20 : game.drips;
   loadLevel(nextLevelId, { startDrips: startingDrips });
   playLevelStartMusic();
@@ -922,12 +928,14 @@ carryoverLevelButton.addEventListener('click', () => {
 
   if (nextLevelId > levels.length) {
     game.score = 0;
+    game.usedCarryoverDrops = false;
     lastActionDiv.textContent = 'No more levels yet. Returning to Level 1.';
     loadLevel(1);
     playLevelStartMusic();
     return;
   }
 
+  game.usedCarryoverDrops = true;
   loadLevel(nextLevelId, { startDrips: game.drips });
   playLevelStartMusic();
 });
@@ -952,10 +960,18 @@ const endGame = (won) => {
   game.gameActive = false;
 
   if (won) {
-    // Score rules: 100 for finding the town center + 5 for each drip left.
+    // Score rules: 100 for finding the town center + points for each drop left.
+    // Level 2 with carryover: 20 points per drop (harder). Otherwise: 5 points per drop.
     // Add this level's points into the run's cumulative score.
-    const levelScore = 100 + game.drips * 5;
+    const dropPointValue = game.currentLevel === 2 && game.usedCarryoverDrops ? 20 : 5;
+    const levelScore = 100 + game.drips * dropPointValue;
     game.score += levelScore;
+
+    // Track session high score and display celebration if beaten.
+    const isNewHighScore = game.score > sessionHighScore;
+    if (isNewHighScore) {
+      sessionHighScore = game.score;
+    }
 
     // Reveal the full map when the town center is found.
     game.showFog = false;
@@ -979,10 +995,10 @@ const endGame = (won) => {
       ? 'Play Level 1 Again'
       : 'Next Level (Reset Drops)';
     endModalLinks.classList.remove('hidden');
-    showEndModal(
-      'Mission Complete!',
-      `You found the town center. Level score added. Total score: ${game.score}`
-    );
+    const scoreMessage = isNewHighScore
+      ? `You found the town center. 🎉 NEW HIGH SCORE! Total score: ${game.score}`
+      : `You found the town center. Level score added. Total score: ${game.score}`;
+    showEndModal('Mission Complete!', scoreMessage);
     lastActionDiv.textContent = 'Great work! Choose what to do next.';
     return;
   }
