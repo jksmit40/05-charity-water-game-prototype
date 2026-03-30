@@ -24,10 +24,15 @@ const game = {
   showRevealRings: false,
   scoutMode: false,
   gameActive: true,
-  usedCarryoverDrops: false, // Tracks if player chose harder carryover mode
+  // NEW FEATURE: Tracks which difficulty mode player chose after Level 1.
+  // If true, they chose to carry over leftover drops (harder = 20 points per drop on Level 2).
+  // If false, they reset to 20 drops (easier = 5 points per drop on Level 2).
+  usedCarryoverDrops: false,
 };
 
-// Session tracking for high scores.
+// NEW FEATURE: Session high score tracking.
+// This stores the best score the player achieves during this page session.
+// When they beat it, the game shows a "🎉 NEW HIGH SCORE!" celebration message.
 let sessionHighScore = 0;
 
 // Turn this on only when placing future assets on the tileset.
@@ -79,15 +84,17 @@ let tutorialShownThisSession = false;
 const revealAnimationDurationMs = 850;
 let revealAnimationFrameId = null;
 
-// Add your level-start audio file at this path.
-// Example: music/your-level-start-track.mp3
+// NEW FEATURE: Background music for gameplay.
+// The audio loops quietly throughout both levels to create an immersive atmosphere.
+// Volume is set to 0.25 (25%) so it doesn't overwhelm the game.
+// Music starts when the player clicks "Start Mission" or advances to the next level.
 const levelStartMusicPath = 'music/John_Bartmann_-_07_-_African_Moon(chosic.com).mp3';
 const levelStartAudio = new Audio(levelStartMusicPath);
-levelStartAudio.preload = 'auto';
-levelStartAudio.loop = true;
-levelStartAudio.volume = 0.25;
+levelStartAudio.preload = 'auto'; // Load the audio file ahead of time for smooth playback
+levelStartAudio.loop = true; // Play continuously
+levelStartAudio.volume = 0.25; // Set volume to 25%
 
-// Edit these lines to customize the facts shown in the bottom message area.
+// Edit these lines to customize the facts shown in the top message area.
 const charityWaterFacts = [
   'charity: water\'s first location was a Northern Uganda refugee camp in 2006.',
   'charity: water has funded over 100,000 water projects around the world.',
@@ -748,15 +755,20 @@ const draw = () => {
 
 const showEndModal = (title, message) => {
   console.log('showEndModal called');
+  // NEW FEATURE: Ensure tutorial modal is hidden before showing end modal.
+  // This prevents the higher z-index tutorial from blocking the end modal.
   hideTutorialModal();
   endModalTitle.textContent = title;
   endModalMessage.textContent = message;
   console.log('Before removing hidden:', endModalOverlay.className);
+  // Remove the 'hidden' class to make the modal visible.
   endModalOverlay.classList.remove('hidden');
   console.log('After removing hidden:', endModalOverlay.className);
 };
 
 const hideEndModal = () => {
+  // Hide the end modal and reset UI elements for the next level.
+  // Clears the modal, links, and carryover button so they're ready for the next round.
   endModalOverlay.classList.add('hidden');
   endModalLinks.classList.add('hidden');
   carryoverLevelButton.classList.add('hidden');
@@ -765,10 +777,15 @@ const hideEndModal = () => {
 };
 
 const playLevelStartMusic = () => {
+  // NEW FEATURE: Smart music player for looping background audio.
+  // Check if music is already playing (not paused).
+  // If it IS playing, return early to avoid restarting it.
+  // This lets the music continue smoothly when the player advances between levels.
   if (!levelStartAudio.paused) {
     return;
   }
 
+  // If music isn't playing, start it now.
   levelStartAudio.play().catch(() => {
     // Ignore autoplay/missing-file errors to keep gameplay smooth.
   });
@@ -899,19 +916,23 @@ const loadLevel = (levelId, options = {}) => {
   }
 };
 
-// Reset button reloads just the current level state.
+// Reset button: Reloads the current level with fresh drops.
 resetLevelButton.addEventListener('click', () => {
+  // Clear the carryover flag so we start with normal 20 drops.
   game.usedCarryoverDrops = false;
+  // Reload the current level completely.
   loadLevel(game.currentLevel);
 });
 
-// Move to the next level slot (placeholder levels are supported).
+// "Next Level (Reset to 20 Drops)" button: Standard difficulty progression.
+// This button appears after Level 1 and moves to Level 2 with fresh drops (5 points per drop).
 nextLevelButton.addEventListener('click', () => {
+  // Standard next level button: always reset drops to 20 for standard difficulty.
   const shouldResetDrops = true;
   const nextLevelId = game.currentLevel + 1;
 
   if (nextLevelId > levels.length) {
-    // Starting a fresh run after the final level resets cumulative score.
+    // If there are no more levels, reset the game and go back to Level 1.
     game.score = 0;
     lastActionDiv.textContent = 'No more levels yet. Returning to Level 1.';
     loadLevel(1);
@@ -919,6 +940,7 @@ nextLevelButton.addEventListener('click', () => {
     return;
   }
 
+  // Clear carryover flag and load the next level with default 20 drops.
   game.usedCarryoverDrops = false;
   const startingDrips = shouldResetDrops ? 20 : game.drips;
   loadLevel(nextLevelId, { startDrips: startingDrips });
@@ -926,6 +948,9 @@ nextLevelButton.addEventListener('click', () => {
 });
 
 carryoverLevelButton.addEventListener('click', () => {
+  // NEW FEATURE: "Use Leftover Drops" button handler.
+  // When clicked, this button carries over the player's remaining drops to the next level.
+  // It also sets usedCarryoverDrops = true so the scoring system knows to apply 20 points/drop.
   const nextLevelId = game.currentLevel + 1;
 
   if (nextLevelId > levels.length) {
@@ -937,7 +962,9 @@ carryoverLevelButton.addEventListener('click', () => {
     return;
   }
 
+  // Mark that we're using the harder difficulty mode.
   game.usedCarryoverDrops = true;
+  // Load the next level, passing the current drop count as the starting amount.
   loadLevel(nextLevelId, { startDrips: game.drips });
   playLevelStartMusic();
 });
@@ -964,14 +991,17 @@ const endGame = (won) => {
   let isNewHighScore = false;
 
   if (won) {
-    // Score rules: 100 for finding the town center + points for each drop left.
-    // Level 2 with carryover: 20 points per drop (harder). Otherwise: 5 points per drop.
-    // Add this level's points into the run's cumulative score.
+    // NEW FEATURE: Difficulty-based scoring.
+    // Level 2 with carryover drops is HARDER, so each drop is worth MORE points (20 instead of 5).
+    // This rewards players who choose the challenge!
+    // Score calculation: 100 base points + (drops left × points per drop)
     const dropPointValue = game.currentLevel === 2 && game.usedCarryoverDrops ? 20 : 5;
     const levelScore = 100 + game.drips * dropPointValue;
     game.score += levelScore;
 
-    // Track session high score and display celebration if beaten.
+    // NEW FEATURE: Session high score tracking.
+    // Compare current score to the best score so far this session.
+    // If it's the new best, update sessionHighScore and set the celebration flag.
     isNewHighScore = game.score > sessionHighScore;
     if (isNewHighScore) {
       sessionHighScore = game.score;
@@ -992,6 +1022,10 @@ const endGame = (won) => {
 
   if (won) {
     console.log('Showing end modal for level', game.currentLevel);
+    // NEW FEATURE: Two-button difficulty choice after Level 1.
+    // After completing Level 1, show the carryover button so players can choose:
+    // - "Next Level (Reset to 20 Drops)" - easier, but 5 points per drop
+    // - "Next Level (Use Leftover Drops)" - harder, but 20 points per drop
     const canChooseCarryover = game.currentLevel === 1;
     carryoverLevelButton.classList.toggle('hidden', !canChooseCarryover);
     nextLevelButton.textContent = canChooseCarryover
@@ -1000,6 +1034,7 @@ const endGame = (won) => {
       ? 'Play Level 1 Again'
       : 'Next Level (Reset Drops)';
     endModalLinks.classList.remove('hidden');
+    // NEW FEATURE: Display celebration message if they beat their best score.
     const scoreMessage = isNewHighScore
       ? `You found the town center. 🎉 NEW HIGH SCORE! Total score: ${game.score}`
       : `You found the town center. Level score added. Total score: ${game.score}`;
