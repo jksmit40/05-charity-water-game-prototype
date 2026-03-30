@@ -747,11 +747,13 @@ const draw = () => {
 // -------------------------------
 
 const showEndModal = (title, message) => {
+  console.log('showEndModal called');
+  hideTutorialModal();
   endModalTitle.textContent = title;
   endModalMessage.textContent = message;
-  nextLevelButton.textContent =
-    game.currentLevel >= levels.length ? 'Play Level 1 Again' : 'Next Level';
+  console.log('Before removing hidden:', endModalOverlay.className);
   endModalOverlay.classList.remove('hidden');
+  console.log('After removing hidden:', endModalOverlay.className);
 };
 
 const hideEndModal = () => {
@@ -957,7 +959,9 @@ const updateDisplay = () => {
 
 // Handles win/lose transitions and end modal messaging.
 const endGame = (won) => {
+  console.log('endGame called with won =', won);
   game.gameActive = false;
+  let isNewHighScore = false;
 
   if (won) {
     // Score rules: 100 for finding the town center + points for each drop left.
@@ -968,7 +972,7 @@ const endGame = (won) => {
     game.score += levelScore;
 
     // Track session high score and display celebration if beaten.
-    const isNewHighScore = game.score > sessionHighScore;
+    isNewHighScore = game.score > sessionHighScore;
     if (isNewHighScore) {
       sessionHighScore = game.score;
     }
@@ -987,6 +991,7 @@ const endGame = (won) => {
   updateDisplay();
 
   if (won) {
+    console.log('Showing end modal for level', game.currentLevel);
     const canChooseCarryover = game.currentLevel === 1;
     carryoverLevelButton.classList.toggle('hidden', !canChooseCarryover);
     nextLevelButton.textContent = canChooseCarryover
@@ -998,7 +1003,9 @@ const endGame = (won) => {
     const scoreMessage = isNewHighScore
       ? `You found the town center. 🎉 NEW HIGH SCORE! Total score: ${game.score}`
       : `You found the town center. Level score added. Total score: ${game.score}`;
+    console.log('Calling showEndModal with message:', scoreMessage);
     showEndModal('Mission Complete!', scoreMessage);
+    console.log('Modal overlay hidden class:', endModalOverlay.classList.contains('hidden'));
     lastActionDiv.textContent = 'Great work! Choose what to do next.';
     return;
   }
