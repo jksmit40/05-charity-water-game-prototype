@@ -80,6 +80,8 @@ let revealAnimationFrameId = null;
 const levelStartMusicPath = 'music/John_Bartmann_-_07_-_African_Moon(chosic.com).mp3';
 const levelStartAudio = new Audio(levelStartMusicPath);
 levelStartAudio.preload = 'auto';
+levelStartAudio.loop = true;
+levelStartAudio.volume = 0.25;
 
 // Edit these lines to customize the facts shown in the bottom message area.
 const charityWaterFacts = [
@@ -757,7 +759,10 @@ const hideEndModal = () => {
 };
 
 const playLevelStartMusic = () => {
-  levelStartAudio.currentTime = 0;
+  if (!levelStartAudio.paused) {
+    return;
+  }
+
   levelStartAudio.play().catch(() => {
     // Ignore autoplay/missing-file errors to keep gameplay smooth.
   });
